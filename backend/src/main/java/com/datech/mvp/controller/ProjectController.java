@@ -33,6 +33,7 @@ public class ProjectController {
 
     @PostMapping
     public Project create(@Valid @RequestBody Project project) {
+        normalizeAndValidate(project);
         return crudService.save(repository, project);
     }
 
@@ -44,6 +45,7 @@ public class ProjectController {
     @PutMapping("/{id}")
     public Project update(@PathVariable Long id, @Valid @RequestBody Project project) {
         project.setId(id);
+        normalizeAndValidate(project);
         return crudService.save(repository, project);
     }
 
@@ -58,7 +60,29 @@ public class ProjectController {
     }
 
     @GetMapping("/{id}/budget-status")
-    public Map<String, Boolean> budgetStatus(@PathVariable Long id) {
-        return Map.of("overBudget", analyticsService.isBudgetExceeded(id));
+        public Map<String, Boolean> budgetStatus(@PathVariable Long id) {
+            return Map.of("overBudget", analyticsService.isBudgetExceeded(id));
+        }
+
+        private void normalizeAndValidate(Project project) {
+        if (project.getStatus() == null || project.getStatus().isBlank()) {
+            project.setStatus("ACTIVE");
+        } else {
+            project.setStatus(project.getStatus().toUpperCase());
+        }
+
+        if (!project.getStatus().equals("ACTIVE") && !project.getStatus().equals("ARCHIVED")) {
+            throw new IllegalArgumentException("Project status must be ACTIVE or ARCHIVED");
+        }
+
+        if (project.getCurrency() == null || project.getCurrency().isBlank()) {
+            throw new IllegalArgumentException("Currency is required");
+        }
+
+        project.setCurrency(project.getCurrency().toUpperCase());
+
+        if (project.getCurrency().length() != 3) {
+            throw new IllegalArgumentException("Currency must be a 3-letter code, e.g. EUR");
+        }
     }
 }
