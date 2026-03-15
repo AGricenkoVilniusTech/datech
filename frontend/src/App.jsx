@@ -145,15 +145,63 @@ export default function App() {
 
       <Panel title="Add Project">
         <form onSubmit={addProject} className="form-inline">
-          <input placeholder="Project name" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} required />
-          <select value={projectForm.clientId} onChange={(e) => setProjectForm({ ...projectForm, clientId: e.target.value })} required>
+          <input
+            placeholder="Project name"
+            value={projectForm.name}
+            onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
+            required
+          />
+
+          <select
+            value={projectForm.clientId}
+            onChange={(e) => setProjectForm({ ...projectForm, clientId: e.target.value })}
+            required
+          >
             <option value="">Select client</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <input placeholder="Budget" type="number" step="0.01" value={projectForm.budget} onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })} required />
-          <input placeholder="Hourly rate" type="number" step="0.01" value={projectForm.hourlyRate} onChange={(e) => setProjectForm({ ...projectForm, hourlyRate: e.target.value })} required />
+
+          <input
+            placeholder="Budget"
+            type="number"
+            step="0.01"
+            min="0"
+            value={projectForm.budget}
+            onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
+            required
+          />
+
+          <input
+            placeholder="Hourly rate"
+            type="number"
+            step="0.01"
+            min="0"
+            value={projectForm.hourlyRate}
+            onChange={(e) => setProjectForm({ ...projectForm, hourlyRate: e.target.value })}
+            required
+          />
+
+          <select
+            value={projectForm.currency}
+            onChange={(e) => setProjectForm({ ...projectForm, currency: e.target.value })}
+            required
+          >
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+          </select>
+
+          <select
+            value={projectForm.status}
+            onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
+            required
+          >
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+          </select>
+
           <button type="submit">Save</button>
         </form>
       </Panel>
