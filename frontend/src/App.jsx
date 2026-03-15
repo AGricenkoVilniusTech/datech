@@ -21,10 +21,9 @@ export default function App() {
   const [error, setError] = useState('');
 
   const [clientForm, setClientForm] = useState({ name: '', email: '', company: '' });
-  const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '' });
+  const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
   const [timeForm, setTimeForm] = useState({ projectId: '', date: '', hours: '', description: '' });
-  const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '' });
-
+  const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '', remind3DaysBefore: false, remind1DayBefore: false, remindOnDueDate: false });
   async function loadAll() {
     try {
       setError('');
@@ -69,7 +68,7 @@ export default function App() {
       budget: Number(projectForm.budget),
       hourlyRate: Number(projectForm.hourlyRate)
     });
-    setProjectForm({ name: '', clientId: '', budget: '', hourlyRate: '' });
+    setProjectForm({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
     loadAll();
   }
 
@@ -93,7 +92,17 @@ export default function App() {
       amount: Number(invoiceForm.amount),
       status: 'UNPAID'
     });
-    setInvoiceForm({ projectId: '', issueDate: '', dueDate: '', amount: '' });
+
+    setInvoiceForm({
+      projectId: '',
+      issueDate: '',
+      dueDate: '',
+      amount: '',
+      remind3DaysBefore: false,
+      remind1DayBefore: false,
+      remindOnDueDate: false
+    });
+
     loadAll();
   }
 
@@ -145,15 +154,63 @@ export default function App() {
 
       <Panel title="Add Project">
         <form onSubmit={addProject} className="form-inline">
-          <input placeholder="Project name" value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })} required />
-          <select value={projectForm.clientId} onChange={(e) => setProjectForm({ ...projectForm, clientId: e.target.value })} required>
+          <input
+            placeholder="Project name"
+            value={projectForm.name}
+            onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
+            required
+          />
+
+          <select
+            value={projectForm.clientId}
+            onChange={(e) => setProjectForm({ ...projectForm, clientId: e.target.value })}
+            required
+          >
             <option value="">Select client</option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-          <input placeholder="Budget" type="number" step="0.01" value={projectForm.budget} onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })} required />
-          <input placeholder="Hourly rate" type="number" step="0.01" value={projectForm.hourlyRate} onChange={(e) => setProjectForm({ ...projectForm, hourlyRate: e.target.value })} required />
+
+          <input
+            placeholder="Budget"
+            type="number"
+            step="0.01"
+            min="0"
+            value={projectForm.budget}
+            onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
+            required
+          />
+
+          <input
+            placeholder="Hourly rate"
+            type="number"
+            step="0.01"
+            min="0"
+            value={projectForm.hourlyRate}
+            onChange={(e) => setProjectForm({ ...projectForm, hourlyRate: e.target.value })}
+            required
+          />
+
+          <select
+            value={projectForm.currency}
+            onChange={(e) => setProjectForm({ ...projectForm, currency: e.target.value })}
+            required
+          >
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+            <option value="GBP">GBP</option>
+          </select>
+
+          <select
+            value={projectForm.status}
+            onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
+            required
+          >
+            <option value="ACTIVE">ACTIVE</option>
+            <option value="ARCHIVED">ARCHIVED</option>
+          </select>
+
           <button type="submit">Save</button>
         </form>
       </Panel>
@@ -162,8 +219,12 @@ export default function App() {
         <form onSubmit={addTimeEntry} className="form-inline">
           <select value={timeForm.projectId} onChange={(e) => setTimeForm({ ...timeForm, projectId: e.target.value })} required>
             <option value="">Select project</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+            {projects
+              .filter((p) => p.status !== 'ARCHIVED')
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
             ))}
           </select>
           <input type="date" value={timeForm.date} onChange={(e) => setTimeForm({ ...timeForm, date: e.target.value })} required />
@@ -175,15 +236,75 @@ export default function App() {
 
       <Panel title="Create Invoice">
         <form onSubmit={addInvoice} className="form-inline">
-          <select value={invoiceForm.projectId} onChange={(e) => setInvoiceForm({ ...invoiceForm, projectId: e.target.value })} required>
+          <select
+            value={invoiceForm.projectId}
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, projectId: e.target.value })}
+            required
+          >
             <option value="">Select project</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
+            {projects
+              .filter((p) => p.status !== 'ARCHIVED')
+              .map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
           </select>
-          <input type="date" value={invoiceForm.issueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })} required />
-          <input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} required />
-          <input placeholder="Amount" type="number" step="0.01" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} required />
+
+          <input
+            type="date"
+            value={invoiceForm.issueDate}
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })}
+            required
+          />
+
+          <input
+            type="date"
+            value={invoiceForm.dueDate}
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+            required
+          />
+
+          <input
+            placeholder="Amount"
+            type="number"
+            step="0.01"
+            value={invoiceForm.amount}
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+            required
+          />
+
+          <label>
+            <input
+              type="checkbox"
+              checked={invoiceForm.remind3DaysBefore}
+              onChange={(e) =>
+                setInvoiceForm({ ...invoiceForm, remind3DaysBefore: e.target.checked })
+              }
+            />
+            3 days before
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={invoiceForm.remind1DayBefore}
+              onChange={(e) =>
+                setInvoiceForm({ ...invoiceForm, remind1DayBefore: e.target.checked })
+              }
+            />
+            1 day before
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={invoiceForm.remindOnDueDate}
+              onChange={(e) =>
+                setInvoiceForm({ ...invoiceForm, remindOnDueDate: e.target.checked })
+              }
+            />
+            On due date
+          </label>
+
           <button type="submit">Save</button>
         </form>
       </Panel>
