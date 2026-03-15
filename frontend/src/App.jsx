@@ -210,8 +210,12 @@ export default function App() {
         <form onSubmit={addTimeEntry} className="form-inline">
           <select value={timeForm.projectId} onChange={(e) => setTimeForm({ ...timeForm, projectId: e.target.value })} required>
             <option value="">Select project</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+            {projects
+              .filter((p) => p.status !== 'ARCHIVED')
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
             ))}
           </select>
           <input type="date" value={timeForm.date} onChange={(e) => setTimeForm({ ...timeForm, date: e.target.value })} required />
