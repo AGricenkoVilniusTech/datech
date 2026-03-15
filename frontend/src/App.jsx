@@ -21,7 +21,7 @@ export default function App() {
   const [error, setError] = useState('');
 
   const [clientForm, setClientForm] = useState({ name: '', email: '', company: '' });
-  const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '' });
+  const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
   const [timeForm, setTimeForm] = useState({ projectId: '', date: '', hours: '', description: '' });
   const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '' });
 
@@ -69,7 +69,7 @@ export default function App() {
       budget: Number(projectForm.budget),
       hourlyRate: Number(projectForm.hourlyRate)
     });
-    setProjectForm({ name: '', clientId: '', budget: '', hourlyRate: '' });
+    setProjectForm({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
     loadAll();
   }
 
