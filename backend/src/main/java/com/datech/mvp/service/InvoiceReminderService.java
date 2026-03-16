@@ -21,12 +21,20 @@ public class InvoiceReminderService {
         return reminderRepository.findByInvoiceId(invoiceId);
     }
 
-    public void createDefaultReminders(Invoice invoice) {
+    public void createRemindersFromInvoice(Invoice invoice) {
         LocalDate dueDate = invoice.getDueDate();
 
-        createReminder(invoice.getId(), dueDate.minusDays(3), "DUE_MINUS_3");
-        createReminder(invoice.getId(), dueDate.minusDays(1), "DUE_MINUS_1");
-        createReminder(invoice.getId(), dueDate, "DUE_TODAY");
+        if (Boolean.TRUE.equals(invoice.getRemind3DaysBefore())) {
+            createReminder(invoice.getId(), dueDate.minusDays(3), "DUE_MINUS_3");
+        }
+
+        if (Boolean.TRUE.equals(invoice.getRemind1DayBefore())) {
+            createReminder(invoice.getId(), dueDate.minusDays(1), "DUE_MINUS_1");
+        }
+
+        if (Boolean.TRUE.equals(invoice.getRemindOnDueDate())) {
+            createReminder(invoice.getId(), dueDate, "DUE_TODAY");
+        }
     }
 
     private void createReminder(Long invoiceId, LocalDate remindAt, String type) {
