@@ -46,6 +46,15 @@ public class InvoiceReminderService {
         reminderRepository.save(reminder);
     }
 
+    
+    public void createDefaultReminders(Invoice invoice) {
+        LocalDate dueDate = invoice.getDueDate();
+
+        createReminder(invoice.getId(), dueDate.minusDays(3), "DUE_MINUS_3");
+        createReminder(invoice.getId(), dueDate.minusDays(1), "DUE_MINUS_1");
+        createReminder(invoice.getId(), dueDate, "DUE_TODAY");
+    }
+
     public void cancelScheduledReminders(Long invoiceId) {
         List<InvoiceReminder> reminders = reminderRepository.findByInvoiceId(invoiceId);
         for (InvoiceReminder reminder : reminders) {
