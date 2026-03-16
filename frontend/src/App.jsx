@@ -15,6 +15,7 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [timeEntries, setTimeEntries] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [reminders, setReminders] = useState([]);
   const [alerts, setAlerts] = useState({ overBudgetProjects: [], overdueInvoices: [] });
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [profitability, setProfitability] = useState(null);
@@ -23,23 +24,26 @@ export default function App() {
   const [clientForm, setClientForm] = useState({ name: '', email: '', company: '' });
   const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
   const [timeForm, setTimeForm] = useState({ projectId: '', date: '', hours: '', description: '' });
-  const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '' });
+
+  const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '', remind3DaysBefore: false, remind1DayBefore: false, remindOnDueDate: false });
 
   async function loadAll() {
     try {
       setError('');
-      const [c, p, t, i, a] = await Promise.all([
+      const [c, p, t, i, a, r] = await Promise.all([
         api.listClients(),
         api.listProjects(),
         api.listTimeEntries(),
         api.listInvoices(),
-        api.getAlerts()
+        api.getAlerts(),
+        api.listInvoiceReminders()
       ]);
       setClients(c);
       setProjects(p);
       setTimeEntries(t);
       setInvoices(i);
       setAlerts(a);
+      setReminders(r);
     } catch (e) {
       setError(e.message);
     }
@@ -56,51 +60,100 @@ export default function App() {
 
   async function addClient(e) {
     e.preventDefault();
-    await api.createClient(clientForm);
-    setClientForm({ name: '', email: '', company: '' });
-    loadAll();
+    try {
+      setError('');
+      await api.createClient(clientForm);
+      setClientForm({ name: '', email: '', company: '' });
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   async function addProject(e) {
     e.preventDefault();
-    await api.createProject({
-      ...projectForm,
-      clientId: Number(projectForm.clientId),
-      budget: Number(projectForm.budget),
-      hourlyRate: Number(projectForm.hourlyRate)
-    });
-    setProjectForm({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
-    loadAll();
+    try {
+      setError('');
+      await api.createProject({
+        ...projectForm,
+        clientId: Number(projectForm.clientId),
+        budget: Number(projectForm.budget),
+        hourlyRate: Number(projectForm.hourlyRate)
+      });
+      setProjectForm({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   async function addTimeEntry(e) {
     e.preventDefault();
-    await api.createTimeEntry({
-      ...timeForm,
-      projectId: Number(timeForm.projectId),
-      hours: Number(timeForm.hours),
-      billable: true
-    });
-    setTimeForm({ projectId: '', date: '', hours: '', description: '' });
-    loadAll();
+    try {
+      setError('');
+      await api.createTimeEntry({
+        ...timeForm,
+        projectId: Number(timeForm.projectId),
+        hours: Number(timeForm.hours),
+        billable: true
+      });
+      setTimeForm({ projectId: '', date: '', hours: '', description: '' });
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   async function addInvoice(e) {
     e.preventDefault();
-    await api.createInvoice({
-      ...invoiceForm,
-      projectId: Number(invoiceForm.projectId),
-      amount: Number(invoiceForm.amount),
-      status: 'UNPAID'
-    });
-    setInvoiceForm({ projectId: '', issueDate: '', dueDate: '', amount: '' });
-    loadAll();
+
+    const today = new Date().toISOString().split('T')[0];
+    const anyReminderSelected =
+      invoiceForm.remind3DaysBefore ||
+      invoiceForm.remind1DayBefore ||
+      invoiceForm.remindOnDueDate;
+
+    if (!invoiceForm.dueDate) {
+      setError('Due date is required.');
+      return;
+    }
+
+    if (invoiceForm.dueDate < today) {
+      setError('Due date cannot be in the past.');
+      return;
+    }
+
+    if (!anyReminderSelected) {
+      setError('Select at least one reminder option.');
+      return;
+    }
+
+    try {
+      setError('');
+      await api.createInvoice({
+        ...invoiceForm,
+        projectId: Number(invoiceForm.projectId),
+        amount: Number(invoiceForm.amount),
+        status: 'UNPAID'
+      });
+
+      setInvoiceForm({ projectId: '', issueDate: '', dueDate: '', amount: '', remind3DaysBefore: false, remind1DayBefore: false, remindOnDueDate: false });
+
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   async function checkProfitability() {
     if (!selectedProjectId) return;
-    const result = await api.getProfitability(selectedProjectId);
-    setProfitability(result);
+    try {
+      setError('');
+      const result = await api.getProfitability(selectedProjectId);
+      setProfitability(result);
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   return (
@@ -136,9 +189,23 @@ export default function App() {
 
       <Panel title="Add Client">
         <form onSubmit={addClient} className="form-inline">
-          <input placeholder="Name" value={clientForm.name} onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })} required />
-          <input placeholder="Email" type="email" value={clientForm.email} onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })} />
-          <input placeholder="Company" value={clientForm.company} onChange={(e) => setClientForm({ ...clientForm, company: e.target.value })} />
+          <input
+            placeholder="Name"
+            value={clientForm.name}
+            onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Email"
+            type="email"
+            value={clientForm.email}
+            onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
+          />
+          <input
+            placeholder="Company"
+            value={clientForm.company}
+            onChange={(e) => setClientForm({ ...clientForm, company: e.target.value })}
+          />
           <button type="submit">Save</button>
         </form>
       </Panel>
@@ -208,7 +275,11 @@ export default function App() {
 
       <Panel title="Track Time">
         <form onSubmit={addTimeEntry} className="form-inline">
-          <select value={timeForm.projectId} onChange={(e) => setTimeForm({ ...timeForm, projectId: e.target.value })} required>
+          <select
+            value={timeForm.projectId}
+            onChange={(e) => setTimeForm({ ...timeForm, projectId: e.target.value })}
+            required
+          >
             <option value="">Select project</option>
             {projects
               .filter((p) => p.status !== 'ARCHIVED')
@@ -218,26 +289,117 @@ export default function App() {
                 </option>
             ))}
           </select>
-          <input type="date" value={timeForm.date} onChange={(e) => setTimeForm({ ...timeForm, date: e.target.value })} required />
-          <input placeholder="Hours" type="number" step="0.25" value={timeForm.hours} onChange={(e) => setTimeForm({ ...timeForm, hours: e.target.value })} required />
-          <input placeholder="Description" value={timeForm.description} onChange={(e) => setTimeForm({ ...timeForm, description: e.target.value })} />
+
+          <input
+            type="date"
+            value={timeForm.date}
+            onChange={(e) => setTimeForm({ ...timeForm, date: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Hours"
+            type="number"
+            step="0.25"
+            value={timeForm.hours}
+            onChange={(e) => setTimeForm({ ...timeForm, hours: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Description"
+            value={timeForm.description}
+            onChange={(e) => setTimeForm({ ...timeForm, description: e.target.value })}
+          />
           <button type="submit">Save</button>
         </form>
       </Panel>
 
       <Panel title="Create Invoice">
         <form onSubmit={addInvoice} className="form-inline">
-          <select value={invoiceForm.projectId} onChange={(e) => setInvoiceForm({ ...invoiceForm, projectId: e.target.value })} required>
+          <select
+            value={invoiceForm.projectId}
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, projectId: e.target.value })}
+            required
+          >
             <option value="">Select project</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
+            {projects
+              .filter((p) => p.status !== 'ARCHIVED')
+              .map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
           </select>
-          <input type="date" value={invoiceForm.issueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })} required />
-          <input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} required />
-          <input placeholder="Amount" type="number" step="0.01" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} required />
+
+          <input
+            type="date"
+            value={invoiceForm.issueDate}
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })}
+            required
+          />
+
+          <input
+            type="date"
+            value={invoiceForm.dueDate}
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+            required
+          />
+
+          <input
+            placeholder="Amount"
+            type="number"
+            step="0.01"
+            value={invoiceForm.amount}
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+            required
+          />
+
+          <label>
+            <input
+              type="checkbox"
+              checked={invoiceForm.remind3DaysBefore}
+              onChange={(e) =>
+                setInvoiceForm({ ...invoiceForm, remind3DaysBefore: e.target.checked })
+              }
+            />
+            3 days before
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={invoiceForm.remind1DayBefore}
+              onChange={(e) =>
+                setInvoiceForm({ ...invoiceForm, remind1DayBefore: e.target.checked })
+              }
+            />
+            1 day before
+          </label>
+
+          <label>
+            <input
+              type="checkbox"
+              checked={invoiceForm.remindOnDueDate}
+              onChange={(e) =>
+                setInvoiceForm({ ...invoiceForm, remindOnDueDate: e.target.checked })
+              }
+            />
+            On due date
+          </label>
+
           <button type="submit">Save</button>
         </form>
+      </Panel>
+
+      <Panel title="Scheduled Reminders">
+        <ul>
+          {reminders.length === 0 ? (
+            <li>No reminders found</li>
+          ) : (
+            reminders.map((r) => (
+              <li key={r.id}>
+                Invoice #{r.invoiceId} | {r.type} | {r.remindAt} | {r.status}
+              </li>
+            ))
+          )}
+        </ul>
       </Panel>
 
       <Panel title="Profitability Check">
