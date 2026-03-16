@@ -36,5 +36,8 @@ export const api = {
   createInvoice: (payload) => request('/invoices', { method: 'POST', body: JSON.stringify(payload) }),
   listOverdueInvoices: () => request('/invoices/overdue'),
 
-  getAlerts: () => request('/dashboard/alerts')
+  getAlerts: () => request('/dashboard/alerts'),
+
+  createExpense: (payload) =>
+    request('/expenses', { method: 'POST', body: JSON.stringify(payload) })
 };

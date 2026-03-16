@@ -15,6 +15,7 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [timeEntries, setTimeEntries] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [alerts, setAlerts] = useState({ overBudgetProjects: [], overdueInvoices: [] });
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [profitability, setProfitability] = useState(null);
@@ -24,6 +25,7 @@ export default function App() {
   const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '' });
   const [timeForm, setTimeForm] = useState({ projectId: '', date: '', hours: '', description: '' });
   const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '' });
+  const [expenseForm, setExpenseForm] = useState({ projectId: '', amount: '', category: '', description: '', date: '' });
 
   async function loadAll() {
     try {
@@ -94,6 +96,17 @@ export default function App() {
       status: 'UNPAID'
     });
     setInvoiceForm({ projectId: '', issueDate: '', dueDate: '', amount: '' });
+    loadAll();
+  }
+
+  async function addExpense(e) {
+    e.preventDefault();
+    await api.createExpense({
+      ...expenseForm,
+      projectId: Number(expenseForm.projectId),
+      amount: Number(expenseForm.amount)
+    });
+    setExpenseForm({ projectId: '', amount: '', category: '', description: '', date: '' });
     loadAll();
   }
 
@@ -169,6 +182,22 @@ export default function App() {
           <input type="date" value={timeForm.date} onChange={(e) => setTimeForm({ ...timeForm, date: e.target.value })} required />
           <input placeholder="Hours" type="number" step="0.25" value={timeForm.hours} onChange={(e) => setTimeForm({ ...timeForm, hours: e.target.value })} required />
           <input placeholder="Description" value={timeForm.description} onChange={(e) => setTimeForm({ ...timeForm, description: e.target.value })} />
+          <button type="submit">Save</button>
+        </form>
+      </Panel>
+
+      <Panel title="Add Expense">
+        <form onSubmit={addExpense} className="form-inline">
+          <select value={expenseForm.projectId} onChange={(e) => setExpenseForm({ ...expenseForm, projectId: e.target.value })} required>
+            <option value="">Select project</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <input type="date" value={expenseForm.date} onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })} required />
+          <input placeholder="Amount" type="number" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} required />
+          <input placeholder="Category" value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} />
+          <input placeholder="Description" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} />
           <button type="submit">Save</button>
         </form>
       </Panel>
