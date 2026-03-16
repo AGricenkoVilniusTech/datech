@@ -23,7 +23,6 @@ export default function App() {
 
   const [clientForm, setClientForm] = useState({ name: '', email: '', company: '' });
   const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
-
   const [timeForm, setTimeForm] = useState({ projectId: '', date: '', hours: '', description: '' });
 
   const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '', remind3DaysBefore: false, remind1DayBefore: false, remindOnDueDate: false });
@@ -288,7 +287,7 @@ export default function App() {
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
-              ))}
+            ))}
           </select>
 
           <input
