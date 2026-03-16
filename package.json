@@ -1,0 +1,24 @@
+{
+  "name": "datech",
+  "version": "1.0.0",
+  "description": "Datech is a simple MVP system for freelancers to manage clients, projects, time tracking and invoicing in one place.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AGricenkoVilniusTech/datech.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/AGricenkoVilniusTech/datech/issues"
+  },
+  "homepage": "https://github.com/AGricenkoVilniusTech/datech#readme",
+  "devDependencies": {
+    "jest": "^30.3.0"
+  }
+}
