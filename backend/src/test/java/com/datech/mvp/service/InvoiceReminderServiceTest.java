@@ -96,4 +96,56 @@ class InvoiceReminderServiceTest {
         assertEquals(1, result.size());
         assertSame(r1, result.get(0));
     }
+
+    @Test
+    void getByInvoiceId_shouldReturnRepositoryResults() {
+        InvoiceReminder r1 = new InvoiceReminder();
+        r1.setInvoiceId(1L);
+
+        when(reminderRepository.findByInvoiceId(1L)).thenReturn(List.of(r1));
+
+        List<InvoiceReminder> result = reminderService.getByInvoiceId(1L);
+
+        assertEquals(1, result.size());
+        assertSame(r1, result.get(0));
+        verify(reminderRepository).findByInvoiceId(1L);
+    }
+
+    @Test
+    void cancelScheduledReminders_shouldDoNothingWhenNoRemindersExist() {
+        when(reminderRepository.findByInvoiceId(1L)).thenReturn(List.of());
+
+        reminderService.cancelScheduledReminders(1L);
+
+        verify(reminderRepository).findByInvoiceId(1L);
+        verify(reminderRepository, never()).save(any());
+    }
+
+    @Test
+    void dueReminders_shouldReturnEmptyListWhenNothingIsDue() {
+        when(reminderRepository.findByStatusAndRemindAtLessThanEqual("SCHEDULED", LocalDate.now()))
+                .thenReturn(List.of());
+
+        List<InvoiceReminder> result = reminderService.dueReminders();
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void createRemindersFromInvoice_shouldCreateOnlySelectedReminderTypes() {
+        invoice.setRemind3DaysBefore(true);
+        invoice.setRemind1DayBefore(false);
+        invoice.setRemindOnDueDate(false);
+
+        reminderService.createRemindersFromInvoice(invoice);
+
+        ArgumentCaptor<InvoiceReminder> captor = ArgumentCaptor.forClass(InvoiceReminder.class);
+        verify(reminderRepository, times(1)).save(captor.capture());
+
+        InvoiceReminder saved = captor.getValue();
+        assertEquals(LocalDate.of(2026, 4, 7), saved.getRemindAt());
+        assertEquals("DUE_MINUS_3", saved.getType());
+        assertEquals("SCHEDULED", saved.getStatus());
+    }
 }
