@@ -6,7 +6,10 @@ import com.datech.mvp.repository.ProjectRepository;
 import com.datech.mvp.service.CrudService;
 import com.datech.mvp.service.ProjectAnalyticsService;
 import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -33,7 +36,7 @@ public class ProjectController {
 
     @PostMapping
     public Project create(@Valid @RequestBody Project project) {
-        normalizeAndValidate(project);
+        normalizeAndValidate(project, null);
         return crudService.save(repository, project);
     }
 
@@ -45,7 +48,7 @@ public class ProjectController {
     @PutMapping("/{id}")
     public Project update(@PathVariable Long id, @Valid @RequestBody Project project) {
         project.setId(id);
-        normalizeAndValidate(project);
+        normalizeAndValidate(project, id);
         return crudService.save(repository, project);
     }
 
@@ -64,7 +67,16 @@ public class ProjectController {
             return Map.of("overBudget", analyticsService.isBudgetExceeded(id));
         }
 
-        private void normalizeAndValidate(Project project) {
+    private void normalizeAndValidate(Project project, Long currentId) {
+        if (project.getCurrency() == null || project.getCurrency().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Currency is required");
+        }
+
+        project.setCurrency(project.getCurrency().toUpperCase());
+        if (project.getCurrency().length() != 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Currency must be a 3-letter code");
+        }
+
         if (project.getStatus() == null || project.getStatus().isBlank()) {
             project.setStatus("ACTIVE");
         } else {
@@ -72,17 +84,18 @@ public class ProjectController {
         }
 
         if (!project.getStatus().equals("ACTIVE") && !project.getStatus().equals("ARCHIVED")) {
-            throw new IllegalArgumentException("Project status must be ACTIVE or ARCHIVED");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACTIVE or ARCHIVED");
         }
 
-        if (project.getCurrency() == null || project.getCurrency().isBlank()) {
-            throw new IllegalArgumentException("Currency is required");
-        }
-
-        project.setCurrency(project.getCurrency().toUpperCase());
-
-        if (project.getCurrency().length() != 3) {
-            throw new IllegalArgumentException("Currency must be a 3-letter code, e.g. EUR");
-        }
+        repository.findByClientIdAndNameIgnoreCase(project.getClientId(), project.getName())
+                .ifPresent(existing -> {
+                    boolean sameRecord = currentId != null && existing.getId().equals(currentId);
+                    if (!sameRecord) {
+                        throw new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "Project name must be unique per client"
+                        );
+                    }
+                });
     }
 }
