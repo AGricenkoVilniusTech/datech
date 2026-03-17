@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from './api';
 import CategoryForm from './components/CategoryForm';
 import CategoryList from './components/CategoryList';
+import TransactionFilter from './components/TransactionFilter';
 
 function Panel({ title, children }) {
   return (
@@ -18,6 +19,7 @@ export default function App() {
   const [timeEntries, setTimeEntries] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [transactions, setTransactions] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [alerts, setAlerts] = useState({ overBudgetProjects: [], overdueInvoices: [] });
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -33,14 +35,15 @@ export default function App() {
   async function loadAll() {
     try {
       setError('');
-      const [c, p, t, i, a, r, cat] = await Promise.all([
+      const [c, p, t, i, a, r, cat, tx] = await Promise.all([
         api.listClients(),
         api.listProjects(),
         api.listTimeEntries(),
         api.listInvoices(),
         api.getAlerts(),
         api.listInvoiceReminders(),
-        api.listCategories()
+        api.listCategories(),
+        api.listTransactions()
       ]);
       setClients(c);
       setProjects(p);
@@ -49,6 +52,7 @@ export default function App() {
       setAlerts(a);
       setReminders(r);
       setCategories(cat);
+      setTransactions(tx);
     } catch (e) {
       setError(e.message);
     }
@@ -174,6 +178,19 @@ export default function App() {
   async function deleteCategory(id) {
     await api.deleteCategory(id);
     setCategories(await api.listCategories());
+  }
+
+  async function applyTransactionFilters(filters) {
+    const result = await api.listTransactions({
+      from: filters.from,
+      to: filters.to,
+      categoryId: filters.categoryId ? Number(filters.categoryId) : null
+    });
+    setTransactions(result);
+  }
+
+  async function clearTransactionFilters() {
+    setTransactions(await api.listTransactions());
   }
 
   return (
@@ -455,6 +472,25 @@ export default function App() {
       <Panel title="Categories">
         <CategoryForm onCreate={createCategory} />
         <CategoryList categories={categories} onUpdate={updateCategory} onDelete={deleteCategory} />
+      </Panel>
+
+      <Panel title="Transactions">
+        <TransactionFilter
+          categories={categories}
+          onApply={applyTransactionFilters}
+          onClear={clearTransactionFilters}
+        />
+        {transactions.length === 0 ? (
+          <p>No transactions match the selected filters</p>
+        ) : (
+          <ul>
+            {transactions.map((tx) => (
+              <li key={tx.id}>
+                {tx.date} | {tx.type || 'n/a'} | {tx.amount} | category {tx.categoryId || 'none'}
+              </li>
+            ))}
+          </ul>
+        )}
       </Panel>
     </main>
   );
