@@ -6,6 +6,8 @@ import com.datech.mvp.service.CrudService;
 import com.datech.mvp.service.ProjectAnalyticsService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import com.datech.mvp.service.TaxCalculator;
+import java.math.BigDecimal;
 
 import java.util.List;
 
@@ -15,6 +17,13 @@ public class InvoiceController {
     private final InvoiceRepository repository;
     private final CrudService crudService;
     private final ProjectAnalyticsService analyticsService;
+    private final TaxCalculator taxCalculator;
+
+    public InvoiceController(InvoiceRepository repository, TaxCalculator taxCalculator) {
+        this.repository = repository;
+        this.taxCalculator = taxCalculator;
+    }
+
 
     public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService) {
         this.repository = repository;
@@ -27,10 +36,26 @@ public class InvoiceController {
         return crudService.findAll(repository);
     }
 
+    // @PostMapping
+    // public Invoice create(@Valid @RequestBody Invoice invoice) {
+    //     return crudService.save(repository, invoice);
+    // }
+
     @PostMapping
-    public Invoice create(@Valid @RequestBody Invoice invoice) {
-        return crudService.save(repository, invoice);
+    public Invoice create(@RequestBody Invoice invoice) {
+
+        BigDecimal subtotal = BigDecimal.valueOf(invoice.getAmount());
+        BigDecimal taxRate = BigDecimal.valueOf(invoice.getTaxRate() != null ? invoice.getTaxRate() : 0);
+
+        BigDecimal taxAmount = taxCalculator.calculateTax(subtotal, taxRate);
+        BigDecimal total = taxCalculator.calculateTotal(subtotal, taxRate);
+
+        invoice.setTaxAmount(taxAmount.doubleValue());
+        invoice.setAmount(total.doubleValue());
+
+        return repository.save(invoice);
     }
+
 
     @GetMapping("/{id}")
     public Invoice one(@PathVariable Long id) {
