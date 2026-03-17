@@ -26,6 +26,7 @@ export default function App() {
   const [timeForm, setTimeForm] = useState({ projectId: '', date: '', hours: '', description: '' });
   const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '' });
   const [expenseForm, setExpenseForm] = useState({ projectId: '', amount: '', category: '', description: '', date: '' });
+  const [successMsg, setSuccessMsg] = useState('');
 
   async function loadAll() {
     try {
@@ -58,9 +59,29 @@ export default function App() {
 
   async function addClient(e) {
     e.preventDefault();
-    await api.createClient(clientForm);
-    setClientForm({ name: '', email: '', company: '' });
-    loadAll();
+    setSuccessMsg('');
+    setError('');
+
+    if (!clientForm.name || clientForm.name.trim().length < 2) {
+      setError('Name is required and must be at least 2 characters.');
+      return;
+    }
+    if (clientForm.email && !clientForm.email.includes('@')) {
+      setError('Invalid email format.');
+      return;
+    }
+
+    try {
+      await api.createClient(clientForm);
+      setClientForm({ name: '', email: '', company: '' });
+      setSuccessMsg('Client created successfully!');
+      
+      setTimeout(() => setSuccessMsg(''), 3000); 
+      
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
   }
 
   async function addProject(e) {
@@ -123,7 +144,10 @@ export default function App() {
         <p>Clients, projects, time tracking, profitability and invoices in one place.</p>
       </header>
 
-      {error && <p className="error">Error: {error}</p>}
+      {/* {error && <p className="error">Error: {error}</p>} */}
+
+      {error && <p className="error" style={{color: 'red'}}>Error: {error}</p>}
+      {successMsg && <p className="success" style={{color: 'green'}}>{successMsg}</p>}
 
       <Panel title="Dashboard">
         <div className="grid two">
