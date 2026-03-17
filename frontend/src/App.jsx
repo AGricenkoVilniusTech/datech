@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from './api';
+import CategoryForm from './components/CategoryForm';
+import CategoryList from './components/CategoryList';
 
 function Panel({ title, children }) {
   return (
@@ -15,6 +17,7 @@ export default function App() {
   const [projects, setProjects] = useState([]);
   const [timeEntries, setTimeEntries] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [alerts, setAlerts] = useState({ overBudgetProjects: [], overdueInvoices: [] });
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -30,13 +33,14 @@ export default function App() {
   async function loadAll() {
     try {
       setError('');
-      const [c, p, t, i, a, r] = await Promise.all([
+      const [c, p, t, i, a, r, cat] = await Promise.all([
         api.listClients(),
         api.listProjects(),
         api.listTimeEntries(),
         api.listInvoices(),
         api.getAlerts(),
-        api.listInvoiceReminders()
+        api.listInvoiceReminders(),
+        api.listCategories()
       ]);
       setClients(c);
       setProjects(p);
@@ -44,6 +48,7 @@ export default function App() {
       setInvoices(i);
       setAlerts(a);
       setReminders(r);
+      setCategories(cat);
     } catch (e) {
       setError(e.message);
     }
@@ -154,6 +159,21 @@ export default function App() {
     } catch (e) {
       setError(e.message);
     }
+  }
+
+  async function createCategory(payload) {
+    await api.createCategory(payload);
+    setCategories(await api.listCategories());
+  }
+
+  async function updateCategory(id, payload) {
+    await api.updateCategory(id, payload);
+    setCategories(await api.listCategories());
+  }
+
+  async function deleteCategory(id) {
+    await api.deleteCategory(id);
+    setCategories(await api.listCategories());
   }
 
   return (
@@ -430,6 +450,11 @@ export default function App() {
             </li>
           ))}
         </ul>
+      </Panel>
+
+      <Panel title="Categories">
+        <CategoryForm onCreate={createCategory} />
+        <CategoryList categories={categories} onUpdate={updateCategory} onDelete={deleteCategory} />
       </Panel>
     </main>
   );

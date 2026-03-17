@@ -38,5 +38,10 @@ export const api = {
 
   listInvoiceReminders: () => request('/invoice-reminders'),
 
+  listCategories: () => request('/categories'),
+  createCategory: (payload) => request('/categories', { method: 'POST', body: JSON.stringify(payload) }),
+  updateCategory: (id, payload) => request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
+
   getAlerts: () => request('/dashboard/alerts')
 };
