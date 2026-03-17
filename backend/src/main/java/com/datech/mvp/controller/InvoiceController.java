@@ -52,4 +52,17 @@ public class InvoiceController {
     public List<Invoice> overdue() {
         return analyticsService.overdueInvoices();
     }
+
+    @PostMapping("/generate")
+    public Invoice generateInvoice(@RequestBody InvoiceRequest request) {
+    long start = System.currentTimeMillis();
+
+    Invoice invoice = invoiceService.generate(request);
+
+    long duration = System.currentTimeMillis() - start;
+    System.out.println("Invoice generation took: " + duration + " ms");
+
+    return invoice;
+}
+
 }
