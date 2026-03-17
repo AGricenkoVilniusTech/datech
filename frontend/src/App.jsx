@@ -24,7 +24,7 @@ export default function App() {
   const [clientForm, setClientForm] = useState({ name: '', email: '', company: '' });
   const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '' });
   const [timeForm, setTimeForm] = useState({ projectId: '', date: '', hours: '', description: '' });
-  const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '' });
+  const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '', taxRate: '' });
   const [expenseForm, setExpenseForm] = useState({ projectId: '', amount: '', category: '', description: '', date: '' });
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -114,6 +114,7 @@ export default function App() {
       ...invoiceForm,
       projectId: Number(invoiceForm.projectId),
       amount: Number(invoiceForm.amount),
+      taxRate: Number(invoiceForm.taxRate),
       status: 'UNPAID'
     });
     setInvoiceForm({ projectId: '', issueDate: '', dueDate: '', amount: '' });
@@ -136,6 +137,13 @@ export default function App() {
     const result = await api.getProfitability(selectedProjectId);
     setProfitability(result);
   }
+
+const subtotal = Number(invoiceForm.amount || 0);
+const taxRate = Number(invoiceForm.taxRate || 0);
+
+const taxAmount = (subtotal * (taxRate / 100)).toFixed(2);
+const total = (subtotal + Number(taxAmount)).toFixed(2);
+
 
   return (
     <main className="container">
@@ -237,8 +245,14 @@ export default function App() {
           <input type="date" value={invoiceForm.issueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })} required />
           <input type="date" value={invoiceForm.dueDate} onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })} required />
           <input placeholder="Amount" type="number" step="0.01" value={invoiceForm.amount} onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })} required />
+          <input placeholder="VAT %" type="number" step="0.01" value={invoiceForm.taxRate} onChange={(e) => setInvoiceForm({ ...invoiceForm, taxRate: e.target.value })} />
           <button type="submit">Save</button>
         </form>
+        <div className="result">
+          <p>Subtotal: {subtotal.toFixed(2)}</p>
+          <p>Tax: {taxAmount}</p>
+          <p>Total: {total}</p>
+        </div>
       </Panel>
 
       <Panel title="Profitability Check">
