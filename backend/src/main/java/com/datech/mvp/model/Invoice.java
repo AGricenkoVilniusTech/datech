@@ -1,10 +1,17 @@
 package com.datech.mvp.model;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "invoices")
@@ -24,6 +31,15 @@ public class Invoice {
 
     @NotNull
     private BigDecimal amount;
+
+    @Min(0)
+    @Max(100)
+    @Column(name = "tax_rate")
+    private Double taxRate;
+
+    @Column(name = "tax_amount")
+    private Double taxAmount;
+
 
     private String status = "UNPAID";
 
@@ -74,4 +90,21 @@ public class Invoice {
     public void setStatus(String status) {
         this.status = status;
     }
+
+    public Double getTaxRate() {
+        return taxRate;
+    }
+    
+    public void setTaxRate(Double taxRate) {
+        this.taxRate = taxRate;
+    }
+    
+    public Double getTaxAmount() {
+        return taxAmount;
+    }
+    
+    public void setTaxAmount(Double taxAmount) {
+        this.taxAmount = taxAmount;
+    }
+    
 }
