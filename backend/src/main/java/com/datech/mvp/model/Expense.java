@@ -1,10 +1,15 @@
 package com.datech.mvp.model;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "expenses")
@@ -18,6 +23,7 @@ public class Expense {
     private Long projectId;
 
     @NotNull
+    @DecimalMin("0.01")
     private BigDecimal amount;
 
     private String category;

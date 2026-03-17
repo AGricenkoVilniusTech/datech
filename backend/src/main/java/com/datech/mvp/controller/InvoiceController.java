@@ -50,7 +50,7 @@ public class InvoiceController {
     //     return crudService.save(repository, invoice);
     // }
     @PostMapping
-    public Invoice create(@RequestBody Invoice invoice) {
+    public Invoice create(@Valid @RequestBody Invoice invoice) {
 
         BigDecimal subtotal = invoice.getAmount();
 
