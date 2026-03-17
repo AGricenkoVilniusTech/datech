@@ -16,6 +16,7 @@ import jakarta.validation.constraints.NotNull;
 @Entity
 @Table(name = "invoices")
 public class Invoice {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -39,7 +40,6 @@ public class Invoice {
 
     @Column(name = "tax_amount")
     private Double taxAmount;
-
 
     private String status = "UNPAID";
 
@@ -94,17 +94,17 @@ public class Invoice {
     public Double getTaxRate() {
         return taxRate;
     }
-    
+
     public void setTaxRate(Double taxRate) {
         this.taxRate = taxRate;
     }
-    
+
     public Double getTaxAmount() {
         return taxAmount;
     }
-    
+
     public void setTaxAmount(Double taxAmount) {
         this.taxAmount = taxAmount;
     }
-    
+
 }

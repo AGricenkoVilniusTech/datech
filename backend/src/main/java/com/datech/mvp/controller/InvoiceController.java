@@ -1,32 +1,41 @@
 package com.datech.mvp.controller;
 
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.datech.mvp.model.Invoice;
 import com.datech.mvp.repository.InvoiceRepository;
 import com.datech.mvp.service.CrudService;
 import com.datech.mvp.service.ProjectAnalyticsService;
-import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
 import com.datech.mvp.service.TaxCalculator;
-import java.math.BigDecimal;
 
-import java.util.List;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/invoices")
 public class InvoiceController {
+
     private final InvoiceRepository repository;
     private final CrudService crudService;
     private final ProjectAnalyticsService analyticsService;
     private final TaxCalculator taxCalculator;
 
-    public InvoiceController(InvoiceRepository repository, TaxCalculator taxCalculator) {
+    // public InvoiceController(InvoiceRepository repository, TaxCalculator taxCalculator) {
+    //     this.repository = repository;
+    //     this.taxCalculator = taxCalculator;
+    // }
+    public InvoiceController(InvoiceRepository repository, TaxCalculator taxCalculator, CrudService crudService, ProjectAnalyticsService analyticsService) {
         this.repository = repository;
         this.taxCalculator = taxCalculator;
-    }
-
-
-    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService) {
-        this.repository = repository;
         this.crudService = crudService;
         this.analyticsService = analyticsService;
     }
@@ -40,22 +49,23 @@ public class InvoiceController {
     // public Invoice create(@Valid @RequestBody Invoice invoice) {
     //     return crudService.save(repository, invoice);
     // }
-
     @PostMapping
     public Invoice create(@RequestBody Invoice invoice) {
 
-        BigDecimal subtotal = BigDecimal.valueOf(invoice.getAmount());
-        BigDecimal taxRate = BigDecimal.valueOf(invoice.getTaxRate() != null ? invoice.getTaxRate() : 0);
+        BigDecimal subtotal = invoice.getAmount();
+
+        BigDecimal taxRate = BigDecimal.valueOf(
+                invoice.getTaxRate() != null ? invoice.getTaxRate() : 0
+        );
 
         BigDecimal taxAmount = taxCalculator.calculateTax(subtotal, taxRate);
         BigDecimal total = taxCalculator.calculateTotal(subtotal, taxRate);
 
         invoice.setTaxAmount(taxAmount.doubleValue());
-        invoice.setAmount(total.doubleValue());
+        invoice.setAmount(total);
 
         return repository.save(invoice);
     }
-
 
     @GetMapping("/{id}")
     public Invoice one(@PathVariable Long id) {
@@ -78,16 +88,12 @@ public class InvoiceController {
         return analyticsService.overdueInvoices();
     }
 
-    @PostMapping("/generate")
-    public Invoice generateInvoice(@RequestBody InvoiceRequest request) {
-    long start = System.currentTimeMillis();
-
-    Invoice invoice = invoiceService.generate(request);
-
-    long duration = System.currentTimeMillis() - start;
-    System.out.println("Invoice generation took: " + duration + " ms");
-
-    return invoice;
-}
-
+    // @PostMapping("/generate")
+    // public Invoice generateInvoice(@RequestBody InvoiceRequest request) {
+    //     long start = System.currentTimeMillis();
+    //     Invoice invoice = invoiceService.generate(request);
+    //     long duration = System.currentTimeMillis() - start;
+    //     System.out.println("Invoice generation took: " + duration + " ms");
+    //     return invoice;
+    // }
 }
