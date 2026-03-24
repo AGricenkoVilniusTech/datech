@@ -18,12 +18,12 @@ public class Client {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
-    @Size(min = 2, max = 100)
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
     @Column(unique = true)
     private String name;
 
-    @Email
+    @Email(message = "Invalid email format")
     private String email;
 
     private String company;

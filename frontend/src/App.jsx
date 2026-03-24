@@ -62,8 +62,15 @@ export default function App() {
     setSuccessMsg('');
     setError('');
 
-    if (!clientForm.name || clientForm.name.trim().length < 2) {
-      setError('Name is required and must be at least 2 characters.');
+    const trimmedName = clientForm.name.trim();
+
+    if (!trimmedName) {
+      setError('Name is required.');
+      return;
+    }
+
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
+      setError('Name must be between 2 and 100 characters.');
       return;
     }
     if (clientForm.email && !clientForm.email.includes('@')) {
@@ -72,12 +79,16 @@ export default function App() {
     }
 
     try {
-      await api.createClient(clientForm);
+      await api.createClient({
+        ...clientForm,
+        name: trimmedName
+      });
+    
       setClientForm({ name: '', email: '', company: '' });
       setSuccessMsg('Client created successfully!');
-      
-      setTimeout(() => setSuccessMsg(''), 3000); 
-      
+    
+      setTimeout(() => setSuccessMsg(''), 3000);
+    
       loadAll();
     } catch (e) {
       setError(e.message);
@@ -152,7 +163,7 @@ const total = (subtotal + Number(taxAmount)).toFixed(2);
         <p>Clients, projects, time tracking, profitability and invoices in one place.</p>
       </header>
 
-      {/* {error && <p className="error">Error: {error}</p>} */}
+
 
       {error && <p className="error" style={{color: 'red'}}>Error: {error}</p>}
       {successMsg && <p className="success" style={{color: 'green'}}>{successMsg}</p>}
