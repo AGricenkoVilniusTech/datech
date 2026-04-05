@@ -43,6 +43,10 @@ public class Invoice {
 
     private String status = "UNPAID";
 
+    private Boolean remind3DaysBefore = false;
+    private Boolean remind1DayBefore = false;
+    private Boolean remindOnDueDate = false;
+
     public Long getId() {
         return id;
     }
@@ -107,4 +111,27 @@ public class Invoice {
         this.taxAmount = taxAmount;
     }
 
+    public Boolean getRemind3DaysBefore() {
+    return remind3DaysBefore;
+}
+
+    public void setRemind3DaysBefore(Boolean remind3DaysBefore) {
+        this.remind3DaysBefore = remind3DaysBefore;
+    }
+
+    public Boolean getRemind1DayBefore() {
+        return remind1DayBefore;
+    }
+
+    public void setRemind1DayBefore(Boolean remind1DayBefore) {
+        this.remind1DayBefore = remind1DayBefore;
+    }
+
+    public Boolean getRemindOnDueDate() {
+        return remindOnDueDate;
+    }
+
+    public void setRemindOnDueDate(Boolean remindOnDueDate) {
+        this.remindOnDueDate = remindOnDueDate;
+    }
 }

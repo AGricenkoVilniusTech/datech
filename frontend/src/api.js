@@ -89,5 +89,11 @@ export const api = {
 
   getAlerts: () => request('/dashboard/alerts'),
 
-  createExpense: (payload) => request('/expenses', { method: 'POST', body: JSON.stringify(payload) })
+  listInvoiceReminders: () => request('/invoice-reminders'),
+
+  createExpense: (payload) =>
+    request('/expenses', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
 };

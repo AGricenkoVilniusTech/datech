@@ -1,6 +1,7 @@
 package com.datech.mvp.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -21,10 +22,15 @@ public class Project {
     private Long clientId;
 
     @NotNull
+    @DecimalMin(value = "0.00", inclusive = true)
     private BigDecimal budget;
 
     @NotNull
+    @DecimalMin(value = "0.00", inclusive = true)
     private BigDecimal hourlyRate;
+
+    @NotBlank
+    private String currency = "EUR";
 
     private LocalDate startDate;
 
@@ -70,6 +76,14 @@ public class Project {
 
     public void setHourlyRate(BigDecimal hourlyRate) {
         this.hourlyRate = hourlyRate;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
     }
 
     public LocalDate getStartDate() {
