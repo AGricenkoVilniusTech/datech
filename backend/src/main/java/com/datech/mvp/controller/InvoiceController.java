@@ -9,6 +9,12 @@ import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import com.datech.mvp.service.InvoicePdfService;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import java.time.LocalDate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -20,15 +26,14 @@ public class InvoiceController {
     private final InvoiceRepository repository;
     private final CrudService crudService;
     private final ProjectAnalyticsService analyticsService;
+    private final InvoicePdfService invoicePdfService;
     private final InvoiceReminderService reminderService;
 
-    public InvoiceController(InvoiceRepository repository,
-                            CrudService crudService,
-                            ProjectAnalyticsService analyticsService,
-                            InvoiceReminderService reminderService) {
+    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService, reminderService) {
         this.repository = repository;
         this.crudService = crudService;
         this.analyticsService = analyticsService;
+        this.invoicePdfService = invoicePdfService;
         this.reminderService = reminderService;
     }
 
@@ -76,6 +81,21 @@ public class InvoiceController {
         return analyticsService.overdueInvoices();
     }
 
+    @GetMapping("/generate-pdf")
+    public ResponseEntity<byte[]> generatePdf(
+            @RequestParam Long clientId,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        byte[] pdf = invoicePdfService.generateInvoicePdf(
+                clientId,
+                LocalDate.parse(startDate),
+                LocalDate.parse(endDate)
+        );
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    } 
     private void validateInvoiceReminderSettings(Invoice invoice) {
         if (invoice.getDueDate() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Due date is required");
