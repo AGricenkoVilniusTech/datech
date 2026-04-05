@@ -15,6 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,10 +26,8 @@ class TimeEntryControllerTest {
 
     @Mock
     private TimeEntryRepository repository;
-
     @Mock
     private ProjectRepository projectRepository;
-
     @Mock
     private CrudService crudService;
 
@@ -51,7 +50,6 @@ class TimeEntryControllerTest {
         Project project = new Project();
         project.setId(1L);
         project.setStatus("ACTIVE");
-
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
         when(crudService.save(repository, entry)).thenReturn(entry);
 
@@ -66,10 +64,10 @@ class TimeEntryControllerTest {
         Project project = new Project();
         project.setId(1L);
         project.setStatus("ARCHIVED");
-
         when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
 
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> controller.create(entry));
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.create(entry));
 
         assertTrue(ex.getReason().contains("Archived project"));
         verify(crudService, never()).save(any(), any());
@@ -79,9 +77,53 @@ class TimeEntryControllerTest {
     void create_shouldRejectMissingProject() {
         when(projectRepository.findById(1L)).thenReturn(Optional.empty());
 
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> controller.create(entry));
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.create(entry));
 
         assertTrue(ex.getReason().contains("Project does not exist"));
         verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void all_shouldReturnAllEntriesWhenNoProjectId() {
+        when(crudService.findAll(repository)).thenReturn(List.of(entry));
+
+        List<TimeEntry> result = controller.all(null);
+
+        assertEquals(1, result.size());
+        verify(crudService).findAll(repository);
+    }
+
+    @Test
+    void all_shouldReturnByProjectIdWhenProvided() {
+        when(repository.findByProjectId(1L)).thenReturn(List.of(entry));
+
+        List<TimeEntry> result = controller.all(1L);
+
+        assertEquals(1, result.size());
+        verify(repository).findByProjectId(1L);
+    }
+
+    @Test
+    void one_shouldReturnEntryById() {
+        when(crudService.findById(repository, 1L)).thenReturn(entry);
+
+        TimeEntry result = controller.one(1L);
+
+        assertSame(entry, result);
+    }
+
+    @Test
+    void update_shouldSaveWhenProjectIsActive() {
+        Project project = new Project();
+        project.setId(1L);
+        project.setStatus("ACTIVE");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(crudService.save(repository, entry)).thenReturn(entry);
+
+        TimeEntry result = controller.update(1L, entry);
+
+        assertEquals(1L, result.getProjectId());
+        verify(crudService).save(repository, entry);
     }
 }
