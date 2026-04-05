@@ -96,6 +96,15 @@ export const api = {
   updateCategory: (id, payload) => request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
 
+  listTransactions: (filters = {}) => {
+    const query = new URLSearchParams();
+    if (filters.from) query.set('from', filters.from);
+    if (filters.to) query.set('to', filters.to);
+    if (filters.categoryId) query.set('category_id', String(filters.categoryId));
+    const suffix = query.toString() ? `?${query}` : '';
+    return request(`/transactions${suffix}`);
+  },
+
   getAlerts: () => request('/dashboard/alerts')
   createExpense: (payload) =>
     request('/expenses', {
