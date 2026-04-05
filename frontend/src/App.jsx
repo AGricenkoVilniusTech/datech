@@ -18,6 +18,7 @@ export default function App() {
   const [timeEntries, setTimeEntries] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [alerts, setAlerts] = useState({ overBudgetProjects: [], overdueInvoices: [] });
   const [selectedProjectId, setSelectedProjectId] = useState('');
@@ -27,8 +28,10 @@ export default function App() {
   const [clientForm, setClientForm] = useState({ name: '', email: '', company: '' });
   const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
   const [timeForm, setTimeForm] = useState({ projectId: '', date: '', hours: '', description: '' });
+  const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '', taxRate: '', remind3DaysBefore: false, remind1DayBefore: false, remindOnDueDate: false });
+  const [expenseForm, setExpenseForm] = useState({ projectId: '', amount: '', category: '', description: '', date: '' });
+  const [successMsg, setSuccessMsg] = useState('');
 
-  const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '', remind3DaysBefore: false, remind1DayBefore: false, remindOnDueDate: false });
 
   async function loadAll() {
     try {
@@ -65,10 +68,36 @@ export default function App() {
 
   async function addClient(e) {
     e.preventDefault();
+    setSuccessMsg('');
+    setError('');
+
+    const trimmedName = clientForm.name.trim();
+
+    if (!trimmedName) {
+      setError('Name is required.');
+      return;
+    }
+
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
+      setError('Name must be between 2 and 100 characters.');
+      return;
+    }
+    if (clientForm.email && !clientForm.email.includes('@')) {
+      setError('Invalid email format.');
+      return;
+    }
+
     try {
-      setError('');
-      await api.createClient(clientForm);
+      await api.createClient({
+        ...clientForm,
+        name: trimmedName
+      });
+    
       setClientForm({ name: '', email: '', company: '' });
+      setSuccessMsg('Client created successfully!');
+    
+      setTimeout(() => setSuccessMsg(''), 3000);
+    
       loadAll();
     } catch (e) {
       setError(e.message);
@@ -110,9 +139,9 @@ export default function App() {
   }
 
   async function addInvoice(e) {
-    e.preventDefault();
 
     const today = new Date().toISOString().split('T')[0];
+
     const anyReminderSelected =
       invoiceForm.remind3DaysBefore ||
       invoiceForm.remind1DayBefore ||
@@ -135,19 +164,40 @@ export default function App() {
 
     try {
       setError('');
+
       await api.createInvoice({
         ...invoiceForm,
         projectId: Number(invoiceForm.projectId),
         amount: Number(invoiceForm.amount),
+        taxRate: Number(invoiceForm.taxRate),
         status: 'UNPAID'
       });
 
-      setInvoiceForm({ projectId: '', issueDate: '', dueDate: '', amount: '', remind3DaysBefore: false, remind1DayBefore: false, remindOnDueDate: false });
+      setInvoiceForm({
+        projectId: '',
+        issueDate: '',
+        dueDate: '',
+        amount: '',
+        taxRate: '',
+        remind3DaysBefore: false,
+        remind1DayBefore: false,
+        remindOnDueDate: false
+      });
 
       loadAll();
     } catch (e) {
       setError(e.message);
     }
+
+  async function addExpense(e) {
+    e.preventDefault();
+    await api.createExpense({
+      ...expenseForm,
+      projectId: Number(expenseForm.projectId),
+      amount: Number(expenseForm.amount)
+    });
+    setExpenseForm({ projectId: '', amount: '', category: '', description: '', date: '' });
+    loadAll();
   }
 
   async function checkProfitability() {
@@ -160,6 +210,13 @@ export default function App() {
       setError(e.message);
     }
   }
+
+  const subtotal = Number(invoiceForm.amount || 0);
+  const taxRate = Number(invoiceForm.taxRate || 0);
+
+  const taxAmount = (subtotal * (taxRate / 100)).toFixed(2);
+  const total = (subtotal + Number(taxAmount)).toFixed(2);
+
 
   async function createCategory(payload) {
     await api.createCategory(payload);
@@ -176,6 +233,7 @@ export default function App() {
     setCategories(await api.listCategories());
   }
 
+
   return (
     <main className="container">
       <header>
@@ -183,7 +241,10 @@ export default function App() {
         <p>Clients, projects, time tracking, profitability and invoices in one place.</p>
       </header>
 
-      {error && <p className="error">Error: {error}</p>}
+
+
+      {error && <p className="error" style={{color: 'red'}}>Error: {error}</p>}
+      {successMsg && <p className="success" style={{color: 'green'}}>{successMsg}</p>}
 
       <Panel title="Dashboard">
         <div className="grid two">
@@ -333,6 +394,22 @@ export default function App() {
         </form>
       </Panel>
 
+      <Panel title="Add Expense">
+        <form onSubmit={addExpense} className="form-inline">
+          <select value={expenseForm.projectId} onChange={(e) => setExpenseForm({ ...expenseForm, projectId: e.target.value })} required>
+            <option value="">Select project</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <input type="date" value={expenseForm.date} onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })} required />
+          <input placeholder="Amount" type="number" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} required />
+          <input placeholder="Category" value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })} />
+          <input placeholder="Description" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} />
+          <button type="submit">Save</button>
+        </form>
+      </Panel>
+
       <Panel title="Create Invoice">
         <form onSubmit={addInvoice} className="form-inline">
           <select
@@ -347,18 +424,21 @@ export default function App() {
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
           </select>
-
           <input
             type="date"
             value={invoiceForm.issueDate}
-            onChange={(e) => setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })}
+            onChange={(e) =>
+              setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })
+            }
             required
           />
 
           <input
             type="date"
             value={invoiceForm.dueDate}
-            onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
+            onChange={(e) =>
+              setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })
+            }
             required
           />
 
@@ -367,8 +447,20 @@ export default function App() {
             type="number"
             step="0.01"
             value={invoiceForm.amount}
-            onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+            onChange={(e) =>
+              setInvoiceForm({ ...invoiceForm, amount: e.target.value })
+            }
             required
+          />
+
+          <input
+            placeholder="VAT %"
+            type="number"
+            step="0.01"
+            value={invoiceForm.taxRate}
+            onChange={(e) =>
+              setInvoiceForm({ ...invoiceForm, taxRate: e.target.value })
+            }
           />
 
           <label>
@@ -376,7 +468,10 @@ export default function App() {
               type="checkbox"
               checked={invoiceForm.remind3DaysBefore}
               onChange={(e) =>
-                setInvoiceForm({ ...invoiceForm, remind3DaysBefore: e.target.checked })
+                setInvoiceForm({
+                  ...invoiceForm,
+                  remind3DaysBefore: e.target.checked
+                })
               }
             />
             3 days before
@@ -387,7 +482,10 @@ export default function App() {
               type="checkbox"
               checked={invoiceForm.remind1DayBefore}
               onChange={(e) =>
-                setInvoiceForm({ ...invoiceForm, remind1DayBefore: e.target.checked })
+                setInvoiceForm({
+                  ...invoiceForm,
+                  remind1DayBefore: e.target.checked
+                })
               }
             />
             1 day before
@@ -398,14 +496,21 @@ export default function App() {
               type="checkbox"
               checked={invoiceForm.remindOnDueDate}
               onChange={(e) =>
-                setInvoiceForm({ ...invoiceForm, remindOnDueDate: e.target.checked })
+                setInvoiceForm({
+                  ...invoiceForm,
+                  remindOnDueDate: e.target.checked
+                })
               }
             />
             On due date
           </label>
-
           <button type="submit">Save</button>
         </form>
+        <div className="result">
+          <p>Subtotal: {subtotal.toFixed(2)}</p>
+          <p>Tax: {taxAmount}</p>
+          <p>Total: {total}</p>
+        </div>
       </Panel>
 
       <Panel title="Scheduled Reminders">
