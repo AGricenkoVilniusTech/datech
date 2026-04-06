@@ -24,6 +24,10 @@ public class InvoiceReminderService {
     public void createRemindersFromInvoice(Invoice invoice) {
         LocalDate dueDate = invoice.getDueDate();
 
+        if (dueDate != null && dueDate.isBefore(LocalDate.now())) {
+        throw new IllegalArgumentException("Due date must be today or a future date.");
+        }
+
         if (Boolean.TRUE.equals(invoice.getRemind3DaysBefore())) {
             createReminder(invoice.getId(), dueDate.minusDays(3), "DUE_MINUS_3");
         }
