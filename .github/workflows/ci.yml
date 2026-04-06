@@ -1,4 +1,4 @@
-wname: CI Pipeline - UR-7
+name: CI Pipeline - UR-7
 
 on:
   push:
@@ -33,4 +33,3 @@ jobs:
         with:
           name: test-results
           path: backend/target/surefire-reports/
-
