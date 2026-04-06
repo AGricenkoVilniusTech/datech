@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -67,35 +68,52 @@ public class ProjectController {
             return Map.of("overBudget", analyticsService.isBudgetExceeded(id));
         }
 
-    private void normalizeAndValidate(Project project, Long currentId) {
-        if (project.getCurrency() == null || project.getCurrency().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Currency is required");
-        }
-
-        project.setCurrency(project.getCurrency().toUpperCase());
-        if (project.getCurrency().length() != 3) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Currency must be a 3-letter code");
-        }
-
-        if (project.getStatus() == null || project.getStatus().isBlank()) {
-            project.setStatus("ACTIVE");
-        } else {
-            project.setStatus(project.getStatus().toUpperCase());
-        }
-
-        if (!project.getStatus().equals("ACTIVE") && !project.getStatus().equals("ARCHIVED")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACTIVE or ARCHIVED");
-        }
-
-        repository.findByClientIdAndNameIgnoreCase(project.getClientId(), project.getName())
-                .ifPresent(existing -> {
-                    boolean sameRecord = currentId != null && existing.getId().equals(currentId);
-                    if (!sameRecord) {
-                        throw new ResponseStatusException(
-                                HttpStatus.BAD_REQUEST,
-                                "Project name must be unique per client"
-                        );
-                    }
-                });
+private void normalizeAndValidate(Project project, Long currentId) {
+    // 1. Pavadinimo ilgio validacija (Reikalavimas: 2-120 simbolių)
+    if (project.getName() == null || project.getName().trim().length() < 2 || project.getName().trim().length() > 120) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project name length must be 2-120 characters");
     }
+
+    // 2. Valandinio įkainio validacija (Reikalavimas: >= 0)
+    if (project.getHourlyRate() != null && project.getHourlyRate().compareTo(BigDecimal.ZERO) < 0) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Hourly rate must be >= 0");
+    }
+
+    // 3. Biudžeto validacija (Reikalavimas: >= 0)
+    if (project.getBudget() != null && project.getBudget().compareTo(BigDecimal.ZERO) < 0) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Budget amount must be >= 0");
+    }
+
+    // 4. Valiutos validacija ir normalizavimas
+    if (project.getCurrency() == null || project.getCurrency().isBlank()) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Currency is required");
+    }
+    project.setCurrency(project.getCurrency().toUpperCase());
+    if (project.getCurrency().length() != 3) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Currency must be a 3-letter code");
+    }
+
+    // 5. Statuso validacija ir normalizavimas
+    if (project.getStatus() == null || project.getStatus().isBlank()) {
+        project.setStatus("ACTIVE");
+    } else {
+        project.setStatus(project.getStatus().toUpperCase());
+    }
+
+    if (!project.getStatus().equals("ACTIVE") && !project.getStatus().equals("ARCHIVED")) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACTIVE or ARCHIVED");
+    }
+
+    // 6. Pavadinimo unikalumo patikra tam pačiam klientui
+    repository.findByClientIdAndNameIgnoreCase(project.getClientId(), project.getName())
+            .ifPresent(existing -> {
+                boolean sameRecord = currentId != null && existing.getId().equals(currentId);
+                if (!sameRecord) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Project name must be unique per client"
+                    );
+                }
+            });
+}
 }
