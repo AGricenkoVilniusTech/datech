@@ -23,11 +23,7 @@ public class InvoiceController {
     private final ProjectAnalyticsService analyticsService;
     private final InvoicePdfService invoicePdfService;
 
-<<<<<<< Updated upstream
     public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService) {
-=======
-    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService, InvoiceReminderService reminderService) {
->>>>>>> Stashed changes
         this.repository = repository;
         this.crudService = crudService;
         this.analyticsService = analyticsService;
