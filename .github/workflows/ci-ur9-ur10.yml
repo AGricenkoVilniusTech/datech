@@ -1,4 +1,4 @@
-name: CI - AleksandrG
+name: CI - feature/UR-9 UR-10 AleksandrG
 
 on:
   push:
