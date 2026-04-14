@@ -95,3 +95,5 @@ class RecurringInvoiceControllerTest {
                 .findFirst().orElseThrow();
 
         assertEquals("CANCELLED", schedule.get("status"));
+    }
+}
