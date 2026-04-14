@@ -41,16 +41,10 @@ public class InvoiceController {
     private final CrudService crudService;
     private final ProjectAnalyticsService analyticsService;
     private final TaxCalculator taxCalculator;
-
-    // public InvoiceController(InvoiceRepository repository, TaxCalculator taxCalculator) {
-    //     this.repository = repository;
-    //     this.taxCalculator = taxCalculator;
-    // }
-    public InvoiceController(InvoiceRepository repository, TaxCalculator taxCalculator, CrudService crudService, ProjectAnalyticsService analyticsService) {
     private final InvoicePdfService invoicePdfService;
     private final InvoiceReminderService reminderService;
 
-    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService, reminderService) {
+    public InvoiceController(InvoiceRepository repository, TaxCalculator taxCalculator, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService, InvoiceReminderService reminderService) {
         this.repository = repository;
         this.taxCalculator = taxCalculator;
         this.crudService = crudService;

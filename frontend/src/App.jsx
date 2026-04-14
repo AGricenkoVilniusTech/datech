@@ -192,6 +192,7 @@ export default function App() {
     } catch (e) {
       setError(e.message);
     }
+  }
 
   async function addExpense(e) {
     e.preventDefault();
