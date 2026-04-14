@@ -105,7 +105,7 @@ export const api = {
     return request(`/transactions${suffix}`);
   },
 
-  getAlerts: () => request('/dashboard/alerts')
+  getAlerts: () => request('/dashboard/alerts'),
   createExpense: (payload) =>
     request('/expenses', {
       method: 'POST',
