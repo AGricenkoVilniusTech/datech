@@ -36,7 +36,12 @@ public class TransactionService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Category does not belong to user");
         }
 
-        return transactionEntryRepository.findFiltered(DEFAULT_USER_ID, fromDate, toDate, categoryId);
+        return transactionEntryRepository.findFiltered(
+                DEFAULT_USER_ID,
+                fromDate != null, fromDate,
+                toDate != null, toDate,
+                categoryId != null, categoryId
+        );
     }
 
     public TransactionEntry create(TransactionEntry entry) {

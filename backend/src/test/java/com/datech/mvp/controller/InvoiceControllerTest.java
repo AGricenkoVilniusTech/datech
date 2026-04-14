@@ -45,6 +45,8 @@ class InvoiceControllerTest {
         invoice.setRemind3DaysBefore(true);
         invoice.setRemind1DayBefore(false);
         invoice.setRemindOnDueDate(false);
+        invoice.setAmount(BigDecimal.TEN);
+        invoice.setTaxRate(0.0);
     }
 
     @Test

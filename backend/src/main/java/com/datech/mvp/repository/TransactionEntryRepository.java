@@ -14,15 +14,18 @@ public interface TransactionEntryRepository extends JpaRepository<TransactionEnt
     @Query("""
             SELECT t FROM TransactionEntry t
             WHERE t.userId = :userId
-              AND (:fromDate IS NULL OR t.date >= :fromDate)
-              AND (:toDate IS NULL OR t.date <= :toDate)
-              AND (:categoryId IS NULL OR t.categoryId = :categoryId)
+              AND (:hasFromDate = false OR t.date >= :fromDate)
+              AND (:hasToDate = false OR t.date <= :toDate)
+              AND (:hasCategory = false OR t.categoryId = :categoryId)
             ORDER BY t.date DESC
             """)
     List<TransactionEntry> findFiltered(
             @Param("userId") Long userId,
+            @Param("hasFromDate") boolean hasFromDate,
             @Param("fromDate") LocalDate fromDate,
+            @Param("hasToDate") boolean hasToDate,
             @Param("toDate") LocalDate toDate,
+            @Param("hasCategory") boolean hasCategory,
             @Param("categoryId") Long categoryId
     );
 }

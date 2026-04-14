@@ -33,7 +33,7 @@ class TransactionServiceTest {
 
     @Test
     void getTransactions_noFilters() {
-        when(transactionEntryRepository.findFiltered(1L, null, null, null)).thenReturn(List.of(new TransactionEntry()));
+        when(transactionEntryRepository.findFiltered(1L, false, null, false, null, false, null)).thenReturn(List.of(new TransactionEntry()));
 
         List<TransactionEntry> result = transactionService.getTransactions(null, null, null);
 
@@ -42,7 +42,7 @@ class TransactionServiceTest {
 
     @Test
     void getTransactions_withDateRange() {
-        when(transactionEntryRepository.findFiltered(1L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), null))
+        when(transactionEntryRepository.findFiltered(1L, true, LocalDate.of(2026, 1, 1), true, LocalDate.of(2026, 1, 31), false, null))
                 .thenReturn(List.of(new TransactionEntry()));
 
         List<TransactionEntry> result = transactionService.getTransactions("2026-01-01", "2026-01-31", null);
@@ -57,7 +57,7 @@ class TransactionServiceTest {
         category.setUserId(1L);
 
         when(categoryRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(category));
-        when(transactionEntryRepository.findFiltered(1L, null, null, 5L)).thenReturn(List.of(new TransactionEntry()));
+        when(transactionEntryRepository.findFiltered(1L, false, null, false, null, true, 5L)).thenReturn(List.of(new TransactionEntry()));
 
         List<TransactionEntry> result = transactionService.getTransactions(null, null, 5L);
 
@@ -71,7 +71,7 @@ class TransactionServiceTest {
         category.setUserId(1L);
 
         when(categoryRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(category));
-        when(transactionEntryRepository.findFiltered(1L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), 5L))
+        when(transactionEntryRepository.findFiltered(1L, true, LocalDate.of(2026, 1, 1), true, LocalDate.of(2026, 1, 31), true, 5L))
                 .thenReturn(List.of(new TransactionEntry()));
 
         List<TransactionEntry> result = transactionService.getTransactions("2026-01-01", "2026-01-31", 5L);
@@ -107,7 +107,7 @@ class TransactionServiceTest {
 
     @Test
     void getTransactions_noResults() {
-        when(transactionEntryRepository.findFiltered(1L, null, null, null)).thenReturn(List.of());
+        when(transactionEntryRepository.findFiltered(1L, false, null, false, null, false, null)).thenReturn(List.of());
 
         List<TransactionEntry> result = transactionService.getTransactions(null, null, null);
 
