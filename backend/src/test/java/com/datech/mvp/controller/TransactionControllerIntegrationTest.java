@@ -14,6 +14,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import static org.hamcrest.Matchers.hasSize;
@@ -60,7 +61,7 @@ class TransactionControllerIntegrationTest {
         // 2. Create Transaction via POST API (Component 1)
         TransactionEntry newEntry = new TransactionEntry();
         newEntry.setCategoryId(category.getId());
-        newEntry.setAmount(19.99);
+        newEntry.setAmount(new BigDecimal("19.99"));
         newEntry.setDate(LocalDate.of(2026, 3, 15));
         newEntry.setDescription("GitHub Copilot");
 
@@ -72,7 +73,7 @@ class TransactionControllerIntegrationTest {
         // 3. Create another Transaction outside filter range (Directly to repo - Component 2)
         TransactionEntry oldEntry = new TransactionEntry();
         oldEntry.setCategoryId(category.getId());
-        oldEntry.setAmount(50.0);
+        oldEntry.setAmount(new BigDecimal("50.0"));
         oldEntry.setDate(LocalDate.of(2026, 2, 10));
         oldEntry.setDescription("Old hosting");
         oldEntry.setUserId(defaultUserId);
