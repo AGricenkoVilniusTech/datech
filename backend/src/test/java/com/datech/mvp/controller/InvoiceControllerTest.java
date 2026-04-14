@@ -26,6 +26,8 @@ class InvoiceControllerTest {
     @Mock private CrudService crudService;
     @Mock private ProjectAnalyticsService analyticsService;
     @Mock private InvoiceReminderService reminderService;
+    @Mock private TaxCalculator taxCalculator;
+    @Mock private InvoicePdfService invoicePdfService;
 
     @InjectMocks
     private InvoiceController controller;
@@ -44,6 +46,8 @@ class InvoiceControllerTest {
 
     @Test
     void create_shouldSaveAndCreateReminders() {
+        when(taxCalculator.calculateTax(any(BigDecimal.class), any(BigDecimal.class))).thenReturn(BigDecimal.ZERO);
+        when(taxCalculator.calculateTotal(any(BigDecimal.class), any(BigDecimal.class))).thenReturn(BigDecimal.TEN);
         when(crudService.save(repository, invoice)).thenReturn(invoice);
 
         Invoice result = controller.create(invoice);
