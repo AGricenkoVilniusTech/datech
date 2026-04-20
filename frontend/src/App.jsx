@@ -193,6 +193,8 @@ export default function App() {
       setError(e.message);
     }
 
+  }
+
   async function addExpense(e) {
     e.preventDefault();
     await api.createExpense({
@@ -257,8 +259,6 @@ export default function App() {
         <p>Clients, projects, time tracking, profitability and invoices in one place.</p>
       </header>
 
-
-
       {error && <p className="error" style={{color: 'red'}}>Error: {error}</p>}
       {successMsg && <p className="success" style={{color: 'green'}}>{successMsg}</p>}
 
@@ -315,7 +315,6 @@ export default function App() {
             onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
             required
           />
-
           <select
             value={projectForm.clientId}
             onChange={(e) => setProjectForm({ ...projectForm, clientId: e.target.value })}
@@ -326,7 +325,6 @@ export default function App() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
-
           <input
             placeholder="Budget"
             type="number"
@@ -336,7 +334,6 @@ export default function App() {
             onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
             required
           />
-
           <input
             placeholder="Hourly rate"
             type="number"
@@ -346,7 +343,6 @@ export default function App() {
             onChange={(e) => setProjectForm({ ...projectForm, hourlyRate: e.target.value })}
             required
           />
-
           <select
             value={projectForm.currency}
             onChange={(e) => setProjectForm({ ...projectForm, currency: e.target.value })}
@@ -356,7 +352,6 @@ export default function App() {
             <option value="USD">USD</option>
             <option value="GBP">GBP</option>
           </select>
-
           <select
             value={projectForm.status}
             onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
@@ -365,7 +360,6 @@ export default function App() {
             <option value="ACTIVE">ACTIVE</option>
             <option value="ARCHIVED">ARCHIVED</option>
           </select>
-
           <button type="submit">Save</button>
         </form>
       </Panel>
@@ -386,7 +380,6 @@ export default function App() {
                 </option>
             ))}
           </select>
-
           <input
             type="date"
             value={timeForm.date}
@@ -443,80 +436,51 @@ export default function App() {
           <input
             type="date"
             value={invoiceForm.issueDate}
-            onChange={(e) =>
-              setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })
-            }
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })}
             required
           />
-
           <input
             type="date"
             value={invoiceForm.dueDate}
-            onChange={(e) =>
-              setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })
-            }
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
             required
           />
-
           <input
             placeholder="Amount"
             type="number"
             step="0.01"
             value={invoiceForm.amount}
-            onChange={(e) =>
-              setInvoiceForm({ ...invoiceForm, amount: e.target.value })
-            }
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
             required
           />
-
           <input
             placeholder="VAT %"
             type="number"
             step="0.01"
             value={invoiceForm.taxRate}
-            onChange={(e) =>
-              setInvoiceForm({ ...invoiceForm, taxRate: e.target.value })
-            }
+            onChange={(e) => setInvoiceForm({ ...invoiceForm, taxRate: e.target.value })}
           />
-
           <label>
             <input
               type="checkbox"
               checked={invoiceForm.remind3DaysBefore}
-              onChange={(e) =>
-                setInvoiceForm({
-                  ...invoiceForm,
-                  remind3DaysBefore: e.target.checked
-                })
-              }
+              onChange={(e) => setInvoiceForm({ ...invoiceForm, remind3DaysBefore: e.target.checked })}
             />
             3 days before
           </label>
-
           <label>
             <input
               type="checkbox"
               checked={invoiceForm.remind1DayBefore}
-              onChange={(e) =>
-                setInvoiceForm({
-                  ...invoiceForm,
-                  remind1DayBefore: e.target.checked
-                })
-              }
+              onChange={(e) => setInvoiceForm({ ...invoiceForm, remind1DayBefore: e.target.checked })}
             />
             1 day before
           </label>
-
           <label>
             <input
               type="checkbox"
               checked={invoiceForm.remindOnDueDate}
-              onChange={(e) =>
-                setInvoiceForm({
-                  ...invoiceForm,
-                  remindOnDueDate: e.target.checked
-                })
-              }
+              onChange={(e) => setInvoiceForm({ ...invoiceForm, remindOnDueDate: e.target.checked })}
             />
             On due date
           </label>
