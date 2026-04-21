@@ -45,6 +45,54 @@ public class WebConfig implements WebMvcConfigurer {
  
  
 ---------------------------------------- 
+File: CategoryController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\CategoryController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.dto.CategoryCreateRequest;
+import com.datech.mvp.dto.CategoryUpdateRequest;
+import com.datech.mvp.model.Category;
+import com.datech.mvp.service.CategoryService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/categories")
+public class CategoryController {
+    private final CategoryService categoryService;
+
+    public CategoryController(CategoryService categoryService) {
+        this.categoryService = categoryService;
+    }
+
+    @GetMapping
+    public List<Category> all() {
+        return categoryService.getCategories();
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Category create(@Valid @RequestBody CategoryCreateRequest request) {
+        return categoryService.createCategory(request);
+    }
+
+    @PutMapping("/{id}")
+    public Category update(@PathVariable Long id, @Valid @RequestBody CategoryUpdateRequest request) {
+        return categoryService.updateCategory(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable Long id) {
+        categoryService.deleteCategory(id);
+    }
+} 
+ 
+---------------------------------------- 
 File: ClientController.java 
 Path: backend\src\main\java\com\datech\mvp\controller\ClientController.java 
 ---------------------------------------- 
@@ -126,6 +174,39 @@ public class DashboardController {
  
  
 ---------------------------------------- 
+File: ExpenseController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\ExpenseController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Expense;
+import com.datech.mvp.service.ExpenseService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/expenses")
+public class ExpenseController {
+
+    private final ExpenseService expenseService;
+
+    public ExpenseController(ExpenseService expenseService) {
+        this.expenseService = expenseService;
+    }
+
+    @PostMapping
+    public Expense createExpense(@RequestBody Expense expense) {
+        return expenseService.createExpense(expense);
+    }
+
+    @GetMapping
+    public List<Expense> getExpenses() {
+        return expenseService.getAllExpenses();
+    }
+} 
+ 
+---------------------------------------- 
 File: InvoiceController.java 
 Path: backend\src\main\java\com\datech\mvp\controller\InvoiceController.java 
 ---------------------------------------- 
@@ -134,11 +215,8 @@ package com.datech.mvp.controller;
 import com.datech.mvp.model.Invoice;
 import com.datech.mvp.repository.InvoiceRepository;
 import com.datech.mvp.service.CrudService;
-import com.datech.mvp.service.InvoiceReminderService;
 import com.datech.mvp.service.ProjectAnalyticsService;
 import jakarta.validation.Valid;
-
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import com.datech.mvp.service.InvoicePdfService;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -146,9 +224,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import java.time.LocalDate;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -158,14 +234,12 @@ public class InvoiceController {
     private final CrudService crudService;
     private final ProjectAnalyticsService analyticsService;
     private final InvoicePdfService invoicePdfService;
-    private final InvoiceReminderService reminderService;
 
-    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService, reminderService) {
+    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService) {
         this.repository = repository;
         this.crudService = crudService;
         this.analyticsService = analyticsService;
         this.invoicePdfService = invoicePdfService;
-        this.reminderService = reminderService;
     }
 
     @GetMapping
@@ -175,11 +249,7 @@ public class InvoiceController {
 
     @PostMapping
     public Invoice create(@Valid @RequestBody Invoice invoice) {
-        validateInvoiceReminderSettings(invoice);
-
-        Invoice saved = crudService.save(repository, invoice);
-        reminderService.createRemindersFromInvoice(saved);
-        return saved;
+        return crudService.save(repository, invoice);
     }
 
     @GetMapping("/{id}")
@@ -187,19 +257,10 @@ public class InvoiceController {
         return crudService.findById(repository, id);
     }
 
-
     @PutMapping("/{id}")
     public Invoice update(@PathVariable Long id, @Valid @RequestBody Invoice invoice) {
         invoice.setId(id);
-        validateInvoiceReminderSettings(invoice);
-
-        Invoice saved = crudService.save(repository, invoice);
-
-        if ("PAID".equalsIgnoreCase(saved.getStatus())) {
-            reminderService.cancelScheduledReminders(saved.getId());
-        }
-
-        return saved;
+        return crudService.save(repository, invoice);
     }
 
     @DeleteMapping("/{id}")
@@ -213,38 +274,20 @@ public class InvoiceController {
     }
 
     @GetMapping("/generate-pdf")
-    public ResponseEntity<byte[]> generatePdf(
-            @RequestParam Long clientId,
-            @RequestParam String startDate,
-            @RequestParam String endDate) {
-        byte[] pdf = invoicePdfService.generateInvoicePdf(
-                clientId,
-                LocalDate.parse(startDate),
-                LocalDate.parse(endDate)
-        );
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice.pdf")
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(pdf);
-    } 
-    private void validateInvoiceReminderSettings(Invoice invoice) {
-        if (invoice.getDueDate() == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Due date is required");
-        }
-
-        if (invoice.getDueDate().isBefore(LocalDate.now())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Due date cannot be in the past");
-        }
-
-        boolean anyReminderSelected =
-                Boolean.TRUE.equals(invoice.getRemind3DaysBefore()) ||
-                Boolean.TRUE.equals(invoice.getRemind1DayBefore()) ||
-                Boolean.TRUE.equals(invoice.getRemindOnDueDate());
-
-        if (!anyReminderSelected) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one reminder option must be selected");
-        }
-    }
+public ResponseEntity<byte[]> generatePdf(
+        @RequestParam Long clientId,
+        @RequestParam String startDate,
+        @RequestParam String endDate) {
+    byte[] pdf = invoicePdfService.generateInvoicePdf(
+            clientId,
+            LocalDate.parse(startDate),
+            LocalDate.parse(endDate)
+    );
+    return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice.pdf")
+            .contentType(MediaType.APPLICATION_PDF)
+            .body(pdf);
+}
 }
  
  
@@ -708,6 +751,124 @@ public class TimeEntryController {
 } 
  
 ---------------------------------------- 
+File: TransactionController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\TransactionController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.TransactionEntry;
+import com.datech.mvp.service.TransactionService;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/transactions")
+public class TransactionController {
+    private final TransactionService transactionService;
+
+    public TransactionController(TransactionService transactionService) {
+        this.transactionService = transactionService;
+    }
+
+    @GetMapping
+    public List<TransactionEntry> all(@RequestParam(required = false) String from,
+                                      @RequestParam(required = false) String to,
+                                      @RequestParam(name = "category_id", required = false) Long categoryId) {
+        return transactionService.getTransactions(from, to, categoryId);
+    }
+
+    @PostMapping
+    public TransactionEntry create(@Valid @RequestBody TransactionEntry entry) {
+        return transactionService.create(entry);
+    }
+} 
+ 
+---------------------------------------- 
+File: CategoryCreateRequest.java 
+Path: backend\src\main\java\com\datech\mvp\dto\CategoryCreateRequest.java 
+---------------------------------------- 
+package com.datech.mvp.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+public class CategoryCreateRequest {
+    @NotBlank
+    @Size(max = 100)
+    private String name;
+
+    @NotNull
+    @Pattern(regexp = "income|expense")
+    private String type;
+
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$")
+    private String color;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: CategoryUpdateRequest.java 
+Path: backend\src\main\java\com\datech\mvp\dto\CategoryUpdateRequest.java 
+---------------------------------------- 
+package com.datech.mvp.dto;
+
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+public class CategoryUpdateRequest {
+    @Size(max = 100)
+    private String name;
+
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$")
+    private String color;
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
+    }
+}
+ 
+ 
+---------------------------------------- 
 File: DashboardAlertsDto.java 
 Path: backend\src\main\java\com\datech\mvp\dto\DashboardAlertsDto.java 
 ---------------------------------------- 
@@ -783,26 +944,181 @@ public class ProjectProfitabilityDto {
  
  
 ---------------------------------------- 
+File: GlobalExceptionHandler.java 
+Path: backend\src\main\java\com\datech\mvp\exception\GlobalExceptionHandler.java 
+---------------------------------------- 
+package com.datech.mvp.exception;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateClient(DataIntegrityViolationException ex) {
+        Map<String, String> body = new HashMap<>();
+        body.put("error", "Client with such a name already exists");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<Map<String, String>> handleValidation(MethodArgumentNotValidException ex) {
+        Map<String, String> body = new HashMap<>();
+        String message = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .findFirst()
+                .map(err -> err.getDefaultMessage())
+                .orElse("Validation error");
+
+        body.put("error", message);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
+        Map<String, String> body = new HashMap<>();
+        body.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: Category.java 
+Path: backend\src\main\java\com\datech\mvp\model\Category.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(
+        name = "categories",
+        uniqueConstraints = @UniqueConstraint(name = "unique_user_category", columnNames = {"user_id", "name"})
+)
+public class Category {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @NotBlank
+    @Size(max = 100)
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Pattern(regexp = "income|expense")
+    @Column(nullable = false, length = 10)
+    private String type;
+
+    @Column(length = 7)
+    private String color;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getColor() {
+        return color;
+    }
+
+    public void setColor(String color) {
+        this.color = color;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+} 
+ 
+---------------------------------------- 
 File: Client.java 
 Path: backend\src\main\java\com\datech\mvp\model\Client.java 
 ---------------------------------------- 
 package com.datech.mvp.model;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @Entity
 @Table(name = "clients")
 public class Client {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank
+    @NotBlank(message = "Name is required")
+    @Size(min = 2, max = 100, message = "Name must be between 2 and 100 characters")
+    @Column(unique = true)
     private String name;
 
-    @Email
+    @Email(message = "Invalid email format")
     private String email;
 
     private String company;
@@ -842,20 +1158,117 @@ public class Client {
  
  
 ---------------------------------------- 
+File: Expense.java 
+Path: backend\src\main\java\com\datech\mvp\model\Expense.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
+
+@Entity
+@Table(name = "expenses")
+public class Expense {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotNull
+    private Long projectId;
+
+    @NotNull
+    @DecimalMin("0.01")
+    private BigDecimal amount;
+
+    private String category;
+
+    private String description;
+
+    @NotNull
+    private LocalDate date;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getProjectId() {
+        return projectId;
+    }
+
+    public void setProjectId(Long projectId) {
+        this.projectId = projectId;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public LocalDate getDate() {
+        return date;
+    }
+
+    public void setDate(LocalDate date) {
+        this.date = date;
+    }
+}
+ 
+ 
+---------------------------------------- 
 File: Invoice.java 
 Path: backend\src\main\java\com\datech\mvp\model\Invoice.java 
 ---------------------------------------- 
 package com.datech.mvp.model;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 
 @Entity
 @Table(name = "invoices")
 public class Invoice {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -871,6 +1284,14 @@ public class Invoice {
 
     @NotNull
     private BigDecimal amount;
+
+    @Min(0)
+    @Max(100)
+    @Column(name = "tax_rate")
+    private Double taxRate;
+
+    @Column(name = "tax_amount")
+    private Double taxAmount;
 
     private String status = "UNPAID";
 
@@ -924,6 +1345,22 @@ public class Invoice {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Double getTaxRate() {
+        return taxRate;
+    }
+
+    public void setTaxRate(Double taxRate) {
+        this.taxRate = taxRate;
+    }
+
+    public Double getTaxAmount() {
+        return taxAmount;
+    }
+
+    public void setTaxAmount(Double taxAmount) {
+        this.taxAmount = taxAmount;
     }
 
     public Boolean getRemind3DaysBefore() {
@@ -1261,6 +1698,127 @@ public class TimeEntry {
 } 
  
 ---------------------------------------- 
+File: TransactionEntry.java 
+Path: backend\src\main\java\com\datech\mvp\model\TransactionEntry.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "transactions", indexes = {
+        @Index(name = "idx_transactions_user_date", columnList = "user_id, date")
+})
+public class TransactionEntry {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @NotNull
+    @Column(nullable = false)
+    private LocalDate date;
+
+    @NotNull
+    @Column(nullable = false)
+    private BigDecimal amount;
+
+    @Column(name = "category_id")
+    private Long categoryId;
+
+    @Column(length = 10)
+    private String type;
+
+    private String description;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
+
+    public LocalDate getDate() {
+        return date;
+    }
+
+    public void setDate(LocalDate date) {
+        this.date = date;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public Long getCategoryId() {
+        return categoryId;
+    }
+
+    public void setCategoryId(Long categoryId) {
+        this.categoryId = categoryId;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: CategoryRepository.java 
+Path: backend\src\main\java\com\datech\mvp\repository\CategoryRepository.java 
+---------------------------------------- 
+package com.datech.mvp.repository;
+
+import com.datech.mvp.model.Category;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface CategoryRepository extends JpaRepository<Category, Long> {
+    List<Category> findByUserIdOrderByTypeAscNameAsc(Long userId);
+
+    Optional<Category> findByIdAndUserId(Long id, Long userId);
+
+    boolean existsByUserIdAndNameIgnoreCase(Long userId, String name);
+
+    boolean existsByUserIdAndNameIgnoreCaseAndIdNot(Long userId, String name, Long id);
+}
+ 
+ 
+---------------------------------------- 
 File: ClientRepository.java 
 Path: backend\src\main\java\com\datech\mvp\repository\ClientRepository.java 
 ---------------------------------------- 
@@ -1272,6 +1830,18 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ClientRepository extends JpaRepository<Client, Long> {
 }
  
+ 
+---------------------------------------- 
+File: ExpenseRepository.java 
+Path: backend\src\main\java\com\datech\mvp\repository\ExpenseRepository.java 
+---------------------------------------- 
+package com.datech.mvp.repository;
+
+import com.datech.mvp.model.Expense;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ExpenseRepository extends JpaRepository<Expense, Long> {
+} 
  
 ---------------------------------------- 
 File: InvoiceReminderRepository.java 
@@ -1359,6 +1929,151 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, Long> {
  
  
 ---------------------------------------- 
+File: TransactionEntryRepository.java 
+Path: backend\src\main\java\com\datech\mvp\repository\TransactionEntryRepository.java 
+---------------------------------------- 
+package com.datech.mvp.repository;
+
+import com.datech.mvp.model.TransactionEntry;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.time.LocalDate;
+import java.util.List;
+
+public interface TransactionEntryRepository extends JpaRepository<TransactionEntry, Long> {
+    long countByUserIdAndCategoryId(Long userId, Long categoryId);
+
+    @Query("""
+            SELECT t FROM TransactionEntry t
+            WHERE t.userId = :userId
+              AND (:fromDate IS NULL OR t.date >= :fromDate)
+              AND (:toDate IS NULL OR t.date <= :toDate)
+              AND (:categoryId IS NULL OR t.categoryId = :categoryId)
+            ORDER BY t.date DESC
+            """)
+    List<TransactionEntry> findFiltered(
+            @Param("userId") Long userId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("categoryId") Long categoryId
+    );
+}
+ 
+ 
+---------------------------------------- 
+File: CategoryService.java 
+Path: backend\src\main\java\com\datech\mvp\service\CategoryService.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.dto.CategoryCreateRequest;
+import com.datech.mvp.dto.CategoryUpdateRequest;
+import com.datech.mvp.model.Category;
+import com.datech.mvp.repository.CategoryRepository;
+import com.datech.mvp.repository.TransactionEntryRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+
+@Service
+public class CategoryService {
+    private static final Long DEFAULT_USER_ID = 1L;
+
+    private final CategoryRepository categoryRepository;
+    private final TransactionEntryRepository transactionEntryRepository;
+
+    public CategoryService(CategoryRepository categoryRepository,
+                           TransactionEntryRepository transactionEntryRepository) {
+        this.categoryRepository = categoryRepository;
+        this.transactionEntryRepository = transactionEntryRepository;
+    }
+
+    public List<Category> getCategories() {
+        return categoryRepository.findByUserIdOrderByTypeAscNameAsc(DEFAULT_USER_ID);
+    }
+
+    public Category createCategory(CategoryCreateRequest request) {
+        String name = request.getName() == null ? "" : request.getName().trim();
+        if (name.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category name cannot be empty");
+        }
+
+        if (categoryRepository.existsByUserIdAndNameIgnoreCase(DEFAULT_USER_ID, name)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Category name already exists");
+        }
+
+        Category category = new Category();
+        category.setUserId(DEFAULT_USER_ID);
+        category.setName(name);
+        category.setType(request.getType());
+        category.setColor(request.getColor());
+        return categoryRepository.save(category);
+    }
+
+    public Category updateCategory(Long id, CategoryUpdateRequest request) {
+        Category category = categoryRepository.findByIdAndUserId(id, DEFAULT_USER_ID)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed"));
+
+        if (request.getName() != null) {
+            String updatedName = request.getName().trim();
+            if (updatedName.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category name cannot be empty");
+            }
+            if (categoryRepository.existsByUserIdAndNameIgnoreCaseAndIdNot(DEFAULT_USER_ID, updatedName, id)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Category name already exists");
+            }
+            category.setName(updatedName);
+        }
+
+        if (request.getColor() != null) {
+            category.setColor(request.getColor());
+        }
+
+        return categoryRepository.save(category);
+    }
+
+    public void deleteCategory(Long id) {
+        Category category = categoryRepository.findByIdAndUserId(id, DEFAULT_USER_ID)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed"));
+
+        if (transactionEntryRepository.countByUserIdAndCategoryId(DEFAULT_USER_ID, category.getId()) > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Category has linked transactions");
+        }
+
+        categoryRepository.delete(category);
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: ClientService.java 
+Path: backend\src\main\java\com\datech\mvp\service\ClientService.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+public class ClientService {
+
+    public void validateClient(String name, String email) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Name is required");
+        }
+        if (name.trim().length() < 2 || name.trim().length() > 100) {
+            throw new IllegalArgumentException("Name must be between 2 and 100 characters");
+        }
+
+        if (email != null && !email.trim().isEmpty()) {
+            if (!email.contains("@") || !email.contains(".")) {
+                throw new IllegalArgumentException("Invalid email format");
+            }
+        }
+    }
+} 
+ 
+---------------------------------------- 
 File: CrudService.java 
 Path: backend\src\main\java\com\datech\mvp\service\CrudService.java 
 ---------------------------------------- 
@@ -1388,6 +2103,36 @@ public class CrudService {
     }
 }
  
+ 
+---------------------------------------- 
+File: ExpenseService.java 
+Path: backend\src\main\java\com\datech\mvp\service\ExpenseService.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.model.Expense;
+import com.datech.mvp.repository.ExpenseRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class ExpenseService {
+
+    private final ExpenseRepository expenseRepository;
+
+    public ExpenseService(ExpenseRepository expenseRepository) {
+        this.expenseRepository = expenseRepository;
+    }
+
+    public Expense createExpense(Expense expense) {
+        return expenseRepository.save(expense);
+    }
+
+    public List<Expense> getAllExpenses() {
+        return expenseRepository.findAll();
+    }
+} 
  
 ---------------------------------------- 
 File: InvoicePdfService.java 
@@ -1634,134 +2379,104 @@ public class ProjectAnalyticsService {
  
  
 ---------------------------------------- 
-File: InvoiceControllerTest.java 
-Path: backend\src\test\java\com\datech\mvp\controller\InvoiceControllerTest.java 
+File: TaxCalculator.java 
+Path: backend\src\main\java\com\datech\mvp\service\TaxCalculator.java 
 ---------------------------------------- 
-package com.datech.mvp.controller;
+package com.datech.mvp.service;
 
-import com.datech.mvp.model.Invoice;
-import com.datech.mvp.repository.InvoiceRepository;
-import com.datech.mvp.service.CrudService;
-import com.datech.mvp.service.InvoiceReminderService;
-import com.datech.mvp.service.ProjectAnalyticsService;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
+import org.springframework.stereotype.Service;
+
+@Service
+public class TaxCalculator {
+
+    public BigDecimal calculateTax(BigDecimal subtotal, BigDecimal taxRate) {
+        validate(subtotal, taxRate);
+
+        BigDecimal taxAmount = subtotal.multiply(taxRate.divide(BigDecimal.valueOf(100)));
+        return taxAmount.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    public BigDecimal calculateTotal(BigDecimal subtotal, BigDecimal taxRate) {
+        BigDecimal tax = calculateTax(subtotal, taxRate);
+        return subtotal.add(tax).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void validate(BigDecimal subtotal, BigDecimal taxRate) {
+        if (subtotal.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Subtotal must be >= 0");
+        }
+        if (taxRate.compareTo(BigDecimal.ZERO) < 0 || taxRate.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new IllegalArgumentException("Tax rate must be between 0 and 100");
+        }
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: TransactionService.java 
+Path: backend\src\main\java\com\datech\mvp\service\TransactionService.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.model.TransactionEntry;
+import com.datech.mvp.repository.CategoryRepository;
+import com.datech.mvp.repository.TransactionEntryRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+@Service
+public class TransactionService {
+    private static final Long DEFAULT_USER_ID = 1L;
 
-@ExtendWith(MockitoExtension.class)
-class InvoiceControllerTest {
+    private final TransactionEntryRepository transactionEntryRepository;
+    private final CategoryRepository categoryRepository;
 
-    @Mock private InvoiceRepository repository;
-    @Mock private CrudService crudService;
-    @Mock private ProjectAnalyticsService analyticsService;
-    @Mock private InvoiceReminderService reminderService;
-
-    @InjectMocks
-    private InvoiceController controller;
-
-    private Invoice invoice;
-
-    @BeforeEach
-    void setUp() {
-        invoice = new Invoice();
-        invoice.setId(1L);
-        invoice.setDueDate(LocalDate.now().plusDays(5));
-        invoice.setRemind3DaysBefore(true);
-        invoice.setRemind1DayBefore(false);
-        invoice.setRemindOnDueDate(false);
+    public TransactionService(TransactionEntryRepository transactionEntryRepository,
+                              CategoryRepository categoryRepository) {
+        this.transactionEntryRepository = transactionEntryRepository;
+        this.categoryRepository = categoryRepository;
     }
 
-    @Test
-    void create_shouldSaveAndCreateReminders() {
-        when(crudService.save(repository, invoice)).thenReturn(invoice);
+    public List<TransactionEntry> getTransactions(String from, String to, Long categoryId) {
+        LocalDate fromDate = parseDate(from);
+        LocalDate toDate = parseDate(to);
 
-        Invoice result = controller.create(invoice);
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date must be before end date");
+        }
 
-        assertSame(invoice, result);
-        verify(crudService).save(repository, invoice);
-        verify(reminderService).createRemindersFromInvoice(invoice);
+        if (categoryId != null && categoryRepository.findByIdAndUserId(categoryId, DEFAULT_USER_ID).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Category does not belong to user");
+        }
+
+        return transactionEntryRepository.findFiltered(DEFAULT_USER_ID, fromDate, toDate, categoryId);
     }
 
-    @Test
-    void create_shouldRejectNullDueDate() {
-        invoice.setDueDate(null);
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.create(invoice));
-
-        assertTrue(ex.getReason().contains("Due date is required"));
-        verify(crudService, never()).save(any(), any());
+    public TransactionEntry create(TransactionEntry entry) {
+        entry.setUserId(DEFAULT_USER_ID);
+        return transactionEntryRepository.save(entry);
     }
 
-    @Test
-    void create_shouldRejectPastDueDate() {
-        invoice.setDueDate(LocalDate.now().minusDays(1));
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.create(invoice));
-
-        assertTrue(ex.getReason().contains("cannot be in the past"));
-        verify(crudService, never()).save(any(), any());
+    private LocalDate parseDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value);
+        } catch (DateTimeParseException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date format");
+        }
     }
-
-    @Test
-    void create_shouldRejectIfNoReminderSelected() {
-        invoice.setRemind3DaysBefore(false);
-        invoice.setRemind1DayBefore(false);
-        invoice.setRemindOnDueDate(false);
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.create(invoice));
-
-        assertTrue(ex.getReason().contains("At least one reminder"));
-        verify(crudService, never()).save(any(), any());
-    }
-
-    @Test
-    void update_shouldCancelRemindersWhenPaid() {
-        invoice.setStatus("PAID");
-        when(crudService.save(repository, invoice)).thenReturn(invoice);
-
-        controller.update(1L, invoice);
-
-        verify(reminderService).cancelScheduledReminders(1L);
-    }
-
-    @Test
-    void update_shouldNotCancelRemindersWhenNotPaid() {
-        invoice.setStatus("SENT");
-        when(crudService.save(repository, invoice)).thenReturn(invoice);
-
-        controller.update(1L, invoice);
-
-        verify(reminderService, never()).cancelScheduledReminders(any());
-    }
-
-    @Test
-    void all_shouldReturnAllInvoices() {
-        when(crudService.findAll(repository)).thenReturn(List.of(invoice));
-
-        List<Invoice> result = controller.all();
-
-        assertEquals(1, result.size());
-    }
-
-    @Test
-    void delete_shouldCallCrudService() {
-        controller.delete(1L);
-        verify(crudService).delete(repository, 1L);
-    }
-} 
+}
+ 
  
 ---------------------------------------- 
 File: InvoiceReminderControllerTest.java 
@@ -2061,108 +2776,6 @@ class ProjectControllerTest {
 } 
  
 ---------------------------------------- 
-File: RecurringInvoiceControllerTest.java 
-Path: backend\src\test\java\com\datech\mvp\controller\RecurringInvoiceControllerTest.java 
----------------------------------------- 
-package com.datech.mvp.controller;
-
-import com.datech.mvp.repository.InvoiceRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.junit.jupiter.api.Assertions.*;
-
-@ExtendWith(MockitoExtension.class)
-class RecurringInvoiceControllerTest {
-
-    @Mock
-    private InvoiceRepository repository;
-
-    @InjectMocks
-    private RecurringInvoiceController controller;
-
-    private Map<String, Object> validRequest;
-
-    @BeforeEach
-    void setUp() {
-        validRequest = new HashMap<>();
-        validRequest.put("clientId", 1L);
-        validRequest.put("interval", "MONTHLY");
-        validRequest.put("startDate", LocalDate.now().plusDays(1).toString());
-    }
-
-    @Test
-    void createSchedule_shouldReturnScheduleForValidRequest() {
-        Map<String, Object> result = controller.createSchedule(validRequest);
-
-        assertNotNull(result.get("scheduleId"));
-        assertEquals("MONTHLY", result.get("interval"));
-        assertEquals("ACTIVE", result.get("status"));
-    }
-
-    @Test
-    void createSchedule_shouldRejectMissingClient() {
-        validRequest.remove("clientId");
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.createSchedule(validRequest));
-
-        assertTrue(ex.getReason().contains("Client is required"));
-    }
-
-    @Test
-    void createSchedule_shouldRejectInvalidInterval() {
-        validRequest.put("interval", "DAILY");
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.createSchedule(validRequest));
-
-        assertTrue(ex.getReason().contains("WEEKLY, MONTHLY, or QUARTERLY"));
-    }
-
-    @Test
-    void createSchedule_shouldRejectPastStartDate() {
-        validRequest.put("startDate", LocalDate.now().minusDays(1).toString());
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.createSchedule(validRequest));
-
-        assertTrue(ex.getReason().contains("today or a future date"));
-    }
-
-    @Test
-    void createSchedule_shouldRejectEndDateBeforeStartDate() {
-        validRequest.put("endDate", LocalDate.now().toString());
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> controller.createSchedule(validRequest));
-
-        assertTrue(ex.getReason().contains("End date must be after start date"));
-    }
-
-    @Test
-    void cancelSchedule_shouldSetStatusToCancelled() {
-        Map<String, Object> created = controller.createSchedule(validRequest);
-        String scheduleId = (String) created.get("scheduleId");
-
-        controller.cancelSchedule(scheduleId);
-
-        Map<String, Object> schedule = controller.getAllSchedules()
-                .stream().filter(s -> s.get("scheduleId").equals(scheduleId))
-                .findFirst().orElseThrow();
-
-        assertEquals("CANCELLED", schedule.get("status")); 
- 
----------------------------------------- 
 File: TimeEntryControllerTest.java 
 Path: backend\src\test\java\com\datech\mvp\controller\TimeEntryControllerTest.java 
 ---------------------------------------- 
@@ -2297,6 +2910,311 @@ class TimeEntryControllerTest {
 } 
  
 ---------------------------------------- 
+File: InvoicePdfIntegrationTest.java 
+Path: backend\src\test\java\com\datech\mvp\integration\InvoicePdfIntegrationTest.java 
+---------------------------------------- 
+package com.datech.mvp.integration;
+
+import com.datech.mvp.model.Client;
+import com.datech.mvp.model.Project;
+import com.datech.mvp.model.TimeEntry;
+import com.datech.mvp.repository.ClientRepository;
+import com.datech.mvp.repository.ProjectRepository;
+import com.datech.mvp.repository.TimeEntryRepository;
+import com.datech.mvp.service.InvoicePdfService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * Integration tests for invoice PDF generation (AM requirement).
+ *
+ * Tests the full stack: InvoicePdfService → ClientRepository + ProjectRepository
+ * + TimeEntryRepository → H2 DB. Verifies that cross-component data retrieval
+ * and calculation produce a valid PDF output.
+ */
+@SpringBootTest
+@ActiveProfiles("test")
+@Transactional
+class InvoicePdfIntegrationTest {
+
+    @Autowired
+    private InvoicePdfService invoicePdfService;
+
+    @Autowired
+    private ClientRepository clientRepository;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Autowired
+    private TimeEntryRepository timeEntryRepository;
+
+    private Long clientId;
+
+    @BeforeEach
+    void setUp() {
+        // Seed client
+        Client client = new Client();
+        client.setName("PDF Test Client");
+        client.setEmail("pdf@example.com");
+        clientId = clientRepository.save(client).getId();
+
+        // Seed project linked to client
+        Project project = new Project();
+        project.setName("PDF Test Project");
+        project.setClientId(clientId);
+        project.setBudget(new BigDecimal("2000.00"));
+        project.setHourlyRate(new BigDecimal("60.00"));
+        project.setCurrency("EUR");
+        project.setStatus("ACTIVE");
+        Long projectId = projectRepository.save(project).getId();
+
+        // Seed time entry within date range
+        TimeEntry entry = new TimeEntry();
+        entry.setProjectId(projectId);
+        entry.setDate(LocalDate.of(2026, 3, 15));
+        entry.setHours(new BigDecimal("5.00"));
+        entry.setDescription("Test work");
+        entry.setBillable(true);
+        timeEntryRepository.save(entry);
+    }
+
+    // TC-AM-06: PDF is generated for a valid client and date range
+    @Test
+    void generatePdf_validClientAndDateRange_returnsPdfBytes() {
+        byte[] pdf = invoicePdfService.generateInvoicePdf(
+                clientId,
+                LocalDate.of(2026, 3, 1),
+                LocalDate.of(2026, 3, 31)
+        );
+
+        assertNotNull(pdf);
+        assertTrue(pdf.length > 0, "PDF should not be empty");
+        // PDF files start with the %PDF magic bytes
+        assertEquals('%', (char) pdf[0]);
+        assertEquals('P', (char) pdf[1]);
+        assertEquals('D', (char) pdf[2]);
+        assertEquals('F', (char) pdf[3]);
+    }
+
+    // TC-AM-07: Start date after end date is rejected before reaching repository
+    @Test
+    void generatePdf_startDateAfterEndDate_throwsIllegalArgument() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                invoicePdfService.generateInvoicePdf(
+                        clientId,
+                        LocalDate.of(2026, 4, 1),
+                        LocalDate.of(2026, 3, 1)
+                )
+        );
+
+        assertTrue(ex.getMessage().contains("Start date must be before"));
+    }
+
+    // TC-AM-08: Date range exceeding 365 days is rejected
+    @Test
+    void generatePdf_dateRangeOver365Days_throwsIllegalArgument() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () ->
+                invoicePdfService.generateInvoicePdf(
+                        clientId,
+                        LocalDate.of(2025, 1, 1),
+                        LocalDate.of(2026, 6, 1)
+                )
+        );
+
+        assertTrue(ex.getMessage().contains("365 days"));
+    }
+
+    // TC-AM-09: Non-existent client throws IllegalArgumentException
+    @Test
+    void generatePdf_nonExistentClient_throwsIllegalArgument() {
+        assertThrows(IllegalArgumentException.class, () ->
+                invoicePdfService.generateInvoicePdf(
+                        99999L,
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 3, 31)
+                )
+        );
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: TimeEntryControllerIntegrationTest.java 
+Path: backend\src\test\java\com\datech\mvp\integration\TimeEntryControllerIntegrationTest.java 
+---------------------------------------- 
+package com.datech.mvp.integration;
+
+import com.datech.mvp.model.Client;
+import com.datech.mvp.model.Project;
+import com.datech.mvp.repository.ClientRepository;
+import com.datech.mvp.repository.ProjectRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.Map;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * Integration tests for time entry validation (AM requirement).
+ *
+ * Tests the full stack: TimeEntryController → CrudService/ProjectRepository → H2 DB.
+ * Covers: project existence check, archived project rejection, and field-level validation.
+ */
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+@Transactional
+class TimeEntryControllerIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private ProjectRepository projectRepository;
+
+    @Autowired
+    private ClientRepository clientRepository;
+
+    private Long activeProjectId;
+    private Long archivedProjectId;
+
+    @BeforeEach
+    void setUp() {
+        // Seed a client
+        Client client = new Client();
+        client.setName("Test Client");
+        client.setEmail("test@example.com");
+        clientRepository.save(client);
+
+        // Seed an ACTIVE project
+        Project active = new Project();
+        active.setName("Active Project");
+        active.setClientId(client.getId());
+        active.setBudget(new BigDecimal("1000.00"));
+        active.setHourlyRate(new BigDecimal("50.00"));
+        active.setCurrency("EUR");
+        active.setStatus("ACTIVE");
+        activeProjectId = projectRepository.save(active).getId();
+
+        // Seed an ARCHIVED project
+        Project archived = new Project();
+        archived.setName("Archived Project");
+        archived.setClientId(client.getId());
+        archived.setBudget(new BigDecimal("500.00"));
+        archived.setHourlyRate(new BigDecimal("40.00"));
+        archived.setCurrency("EUR");
+        archived.setStatus("ARCHIVED");
+        archivedProjectId = projectRepository.save(archived).getId();
+    }
+
+    // TC-AM-01: Valid time entry is saved successfully
+    @Test
+    void createTimeEntry_validEntry_returns200AndSavesEntry() throws Exception {
+        Map<String, Object> body = Map.of(
+                "projectId", activeProjectId,
+                "date", LocalDate.now().toString(),
+                "hours", "8.00",
+                "description", "Integration test work",
+                "billable", true
+        );
+
+        mockMvc.perform(post("/api/time-entries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.projectId").value(activeProjectId))
+                .andExpect(jsonPath("$.hours").value(8.00));
+    }
+
+    // TC-AM-02: Time entry for non-existent project is rejected
+    @Test
+    void createTimeEntry_nonExistentProject_returns400() throws Exception {
+        Map<String, Object> body = Map.of(
+                "projectId", 99999L,
+                "date", LocalDate.now().toString(),
+                "hours", "4.00"
+        );
+
+        mockMvc.perform(post("/api/time-entries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // TC-AM-03: Time entry for ARCHIVED project is rejected
+    @Test
+    void createTimeEntry_archivedProject_returns400() throws Exception {
+        Map<String, Object> body = Map.of(
+                "projectId", archivedProjectId,
+                "date", LocalDate.now().toString(),
+                "hours", "4.00"
+        );
+
+        mockMvc.perform(post("/api/time-entries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // TC-AM-04: Hours below minimum (0.01) are rejected by bean validation
+    @Test
+    void createTimeEntry_zeroHours_returns400() throws Exception {
+        Map<String, Object> body = Map.of(
+                "projectId", activeProjectId,
+                "date", LocalDate.now().toString(),
+                "hours", "0.00"
+        );
+
+        mockMvc.perform(post("/api/time-entries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
+
+    // TC-AM-05: Hours above maximum (24.00) are rejected by bean validation
+    @Test
+    void createTimeEntry_tooManyHours_returns400() throws Exception {
+        Map<String, Object> body = Map.of(
+                "projectId", activeProjectId,
+                "date", LocalDate.now().toString(),
+                "hours", "25.00"
+        );
+
+        mockMvc.perform(post("/api/time-entries")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest());
+    }
+}
+ 
+ 
+---------------------------------------- 
 File: ProjectModelTest.java 
 Path: backend\src\test\java\com\datech\mvp\model\ProjectModelTest.java 
 ---------------------------------------- 
@@ -2343,6 +3261,217 @@ class ProjectModelTest {
     void shouldHaveDefaultStatusACTIVE() {
         Project p = new Project();
         assertEquals("ACTIVE", p.getStatus());
+    }
+} 
+ 
+---------------------------------------- 
+File: CategoryServiceTest.java 
+Path: backend\src\test\java\com\datech\mvp\service\CategoryServiceTest.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.dto.CategoryCreateRequest;
+import com.datech.mvp.dto.CategoryUpdateRequest;
+import com.datech.mvp.model.Category;
+import com.datech.mvp.repository.CategoryRepository;
+import com.datech.mvp.repository.TransactionEntryRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class CategoryServiceTest {
+
+    @Mock
+    private CategoryRepository categoryRepository;
+
+    @Mock
+    private TransactionEntryRepository transactionEntryRepository;
+
+    @InjectMocks
+    private CategoryService categoryService;
+
+    @Test
+    void createCategory_success() {
+        CategoryCreateRequest request = new CategoryCreateRequest();
+        request.setName("Food");
+        request.setType("expense");
+        request.setColor("#112233");
+
+        Category saved = new Category();
+        saved.setId(10L);
+        saved.setUserId(1L);
+        saved.setName("Food");
+        saved.setType("expense");
+        saved.setColor("#112233");
+
+        when(categoryRepository.existsByUserIdAndNameIgnoreCase(1L, "Food")).thenReturn(false);
+        when(categoryRepository.save(any(Category.class))).thenReturn(saved);
+
+        Category result = categoryService.createCategory(request);
+
+        assertEquals(10L, result.getId());
+        assertEquals("Food", result.getName());
+    }
+
+    @Test
+    void createCategory_duplicateName() {
+        CategoryCreateRequest request = new CategoryCreateRequest();
+        request.setName("Food");
+        request.setType("expense");
+
+        when(categoryRepository.existsByUserIdAndNameIgnoreCase(1L, "Food")).thenReturn(true);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> categoryService.createCategory(request));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+    }
+
+    @Test
+    void createCategory_emptyName() {
+        CategoryCreateRequest request = new CategoryCreateRequest();
+        request.setName("   ");
+        request.setType("expense");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> categoryService.createCategory(request));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+    }
+
+    @Test
+    void updateCategory_success() {
+        Category existing = new Category();
+        existing.setId(1L);
+        existing.setUserId(1L);
+        existing.setName("Food");
+        existing.setType("expense");
+
+        when(categoryRepository.findByIdAndUserId(1L, 1L)).thenReturn(Optional.of(existing));
+        when(categoryRepository.existsByUserIdAndNameIgnoreCaseAndIdNot(1L, "Groceries", 1L)).thenReturn(false);
+        when(categoryRepository.save(any(Category.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Category result = categoryService.updateCategory(1L, updateName("Groceries"));
+
+        assertEquals("Groceries", result.getName());
+    }
+
+    @Test
+    void updateCategory_notOwner() {
+        when(categoryRepository.findByIdAndUserId(22L, 1L)).thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> categoryService.updateCategory(22L, updateName("Any")));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+    }
+
+    @Test
+    void deleteCategory_success() {
+        Category existing = new Category();
+        existing.setId(5L);
+        existing.setUserId(1L);
+
+        when(categoryRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(existing));
+        when(transactionEntryRepository.countByUserIdAndCategoryId(1L, 5L)).thenReturn(0L);
+
+        categoryService.deleteCategory(5L);
+
+        verify(categoryRepository).delete(existing);
+    }
+
+    @Test
+    void deleteCategory_hasLinkedTransactions() {
+        Category existing = new Category();
+        existing.setId(5L);
+        existing.setUserId(1L);
+
+        when(categoryRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(existing));
+        when(transactionEntryRepository.countByUserIdAndCategoryId(1L, 5L)).thenReturn(2L);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> categoryService.deleteCategory(5L));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
+    }
+
+    @Test
+    void getCategories_returnsOnlyOwnCategories() {
+        Category one = new Category();
+        one.setId(1L);
+        one.setUserId(1L);
+
+        when(categoryRepository.findByUserIdOrderByTypeAscNameAsc(1L)).thenReturn(List.of(one));
+
+        List<Category> result = categoryService.getCategories();
+
+        assertEquals(1, result.size());
+        assertEquals(1L, result.get(0).getUserId());
+    }
+
+    private CategoryUpdateRequest updateName(String name) {
+        CategoryUpdateRequest request = new CategoryUpdateRequest();
+        request.setName(name);
+        return request;
+    }
+} 
+ 
+---------------------------------------- 
+File: ClientServiceTest.java 
+Path: backend\src\test\java\com\datech\mvp\service\ClientServiceTest.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.Test;
+
+class ClientServiceTest {
+
+    private final ClientService service = new ClientService();
+
+    @Test
+    void acceptsValidClient() {
+        assertDoesNotThrow(() -> {
+            service.validateClient("Tech Corp", "contact@techcorp.com");
+        });
+    }
+
+    @Test
+    void rejectsEmptyName() {
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            service.validateClient("", "test@test.com");
+        });
+        assertEquals("Name is required", exception.getMessage());
+    }
+
+    @Test
+    void rejectsNameTooShort() {
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            service.validateClient("A", "test@test.com");
+        });
+        assertEquals("Name must be between 2 and 100 characters", exception.getMessage());
+    }
+
+    @Test
+    void rejectsInvalidEmail() {
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            service.validateClient("Valid Name", "invalid-email");
+        });
+        assertEquals("Invalid email format", exception.getMessage());
     }
 } 
  
@@ -2658,6 +3787,290 @@ class ProjectAnalyticsServiceTest {
         when(projectRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThrows(IllegalArgumentException.class, () -> service.profitability(99L));
+    }
+} 
+ 
+---------------------------------------- 
+File: TaxCalculatorTest.java 
+Path: backend\src\test\java\com\datech\mvp\service\TaxCalculatorTest.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import java.math.BigDecimal;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+class TaxCalculatorTest {
+
+    private final TaxCalculator taxCalculator = new TaxCalculator();
+
+    @Test
+    @DisplayName("Calculates 21% VAT correctly for subtotal 1000.00")
+    void calculatesTaxCorrectly() {
+        BigDecimal subtotal = new BigDecimal("1000.00");
+        BigDecimal taxRate = new BigDecimal("21");
+
+        BigDecimal result = taxCalculator.calculateTax(subtotal, taxRate);
+
+        assertEquals(new BigDecimal("210.00"), result);
+    }
+
+    @Test
+    @DisplayName("Calculates final total correctly for subtotal 1000.00 and VAT 21%")
+    void calculatesTotalCorrectly() {
+        BigDecimal subtotal = new BigDecimal("1000.00");
+        BigDecimal taxRate = new BigDecimal("21");
+
+        BigDecimal result = taxCalculator.calculateTotal(subtotal, taxRate);
+
+        assertEquals(new BigDecimal("1210.00"), result);
+    }
+
+    @Test
+    @DisplayName("Returns zero tax when VAT rate is 0%")
+    void returnsZeroTaxWhenRateIsZero() {
+        BigDecimal subtotal = new BigDecimal("1000.00");
+        BigDecimal taxRate = new BigDecimal("0");
+
+        BigDecimal result = taxCalculator.calculateTax(subtotal, taxRate);
+
+        assertEquals(new BigDecimal("0.00"), result);
+    }
+
+    @Test
+    @DisplayName("Returns subtotal unchanged when VAT rate is 0%")
+    void returnsSubtotalWhenRateIsZero() {
+        BigDecimal subtotal = new BigDecimal("1000.00");
+        BigDecimal taxRate = new BigDecimal("0");
+
+        BigDecimal result = taxCalculator.calculateTotal(subtotal, taxRate);
+
+        assertEquals(new BigDecimal("1000.00"), result);
+    }
+
+    @Test
+    @DisplayName("Calculates 100% VAT correctly")
+    void calculatesTaxCorrectlyForOneHundredPercent() {
+        BigDecimal subtotal = new BigDecimal("250.00");
+        BigDecimal taxRate = new BigDecimal("100");
+
+        BigDecimal result = taxCalculator.calculateTax(subtotal, taxRate);
+
+        assertEquals(new BigDecimal("250.00"), result);
+    }
+
+    @Test
+    @DisplayName("Calculates total correctly for 100% VAT")
+    void calculatesTotalCorrectlyForOneHundredPercent() {
+        BigDecimal subtotal = new BigDecimal("250.00");
+        BigDecimal taxRate = new BigDecimal("100");
+
+        BigDecimal result = taxCalculator.calculateTotal(subtotal, taxRate);
+
+        assertEquals(new BigDecimal("500.00"), result);
+    }
+
+    @Test
+    @DisplayName("Rejects negative subtotal")
+    void rejectsNegativeSubtotal() {
+        BigDecimal subtotal = new BigDecimal("-1.00");
+        BigDecimal taxRate = new BigDecimal("21");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> taxCalculator.calculateTax(subtotal, taxRate)
+        );
+
+        assertEquals("Subtotal must be >= 0", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects negative VAT rate")
+    void rejectsNegativeTaxRate() {
+        BigDecimal subtotal = new BigDecimal("1000.00");
+        BigDecimal taxRate = new BigDecimal("-5");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> taxCalculator.calculateTax(subtotal, taxRate)
+        );
+
+        assertEquals("Tax rate must be between 0 and 100", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects VAT rate greater than 100")
+    void rejectsTaxRateGreaterThanOneHundred() {
+        BigDecimal subtotal = new BigDecimal("1000.00");
+        BigDecimal taxRate = new BigDecimal("101");
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> taxCalculator.calculateTax(subtotal, taxRate)
+        );
+
+        assertEquals("Tax rate must be between 0 and 100", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rounds tax amount to two decimal places")
+    void roundsTaxToTwoDecimalPlaces() {
+        BigDecimal subtotal = new BigDecimal("999.99");
+        BigDecimal taxRate = new BigDecimal("21");
+
+        BigDecimal result = taxCalculator.calculateTax(subtotal, taxRate);
+
+        assertEquals(new BigDecimal("210.00"), result);
+    }
+
+    @Test
+    @DisplayName("Rounds total amount to two decimal places")
+    void roundsTotalToTwoDecimalPlaces() {
+        BigDecimal subtotal = new BigDecimal("999.99");
+        BigDecimal taxRate = new BigDecimal("21");
+
+        BigDecimal result = taxCalculator.calculateTotal(subtotal, taxRate);
+
+        assertEquals(new BigDecimal("1209.99"), result);
+    }
+
+    @Test
+    @DisplayName("Handles zero subtotal correctly")
+    void handlesZeroSubtotalCorrectly() {
+        BigDecimal subtotal = new BigDecimal("0.00");
+        BigDecimal taxRate = new BigDecimal("21");
+
+        BigDecimal tax = taxCalculator.calculateTax(subtotal, taxRate);
+        BigDecimal total = taxCalculator.calculateTotal(subtotal, taxRate);
+
+        assertEquals(new BigDecimal("0.00"), tax);
+        assertEquals(new BigDecimal("0.00"), total);
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: TransactionServiceTest.java 
+Path: backend\src\test\java\com\datech\mvp\service\TransactionServiceTest.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.model.Category;
+import com.datech.mvp.model.TransactionEntry;
+import com.datech.mvp.repository.CategoryRepository;
+import com.datech.mvp.repository.TransactionEntryRepository;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
+
+@ExtendWith(MockitoExtension.class)
+class TransactionServiceTest {
+
+    @Mock
+    private TransactionEntryRepository transactionEntryRepository;
+
+    @Mock
+    private CategoryRepository categoryRepository;
+
+    @InjectMocks
+    private TransactionService transactionService;
+
+    @Test
+    void getTransactions_noFilters() {
+        when(transactionEntryRepository.findFiltered(1L, null, null, null)).thenReturn(List.of(new TransactionEntry()));
+
+        List<TransactionEntry> result = transactionService.getTransactions(null, null, null);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getTransactions_withDateRange() {
+        when(transactionEntryRepository.findFiltered(1L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), null))
+                .thenReturn(List.of(new TransactionEntry()));
+
+        List<TransactionEntry> result = transactionService.getTransactions("2026-01-01", "2026-01-31", null);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getTransactions_withCategory() {
+        Category category = new Category();
+        category.setId(5L);
+        category.setUserId(1L);
+
+        when(categoryRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(category));
+        when(transactionEntryRepository.findFiltered(1L, null, null, 5L)).thenReturn(List.of(new TransactionEntry()));
+
+        List<TransactionEntry> result = transactionService.getTransactions(null, null, 5L);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getTransactions_withAllFilters() {
+        Category category = new Category();
+        category.setId(5L);
+        category.setUserId(1L);
+
+        when(categoryRepository.findByIdAndUserId(5L, 1L)).thenReturn(Optional.of(category));
+        when(transactionEntryRepository.findFiltered(1L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31), 5L))
+                .thenReturn(List.of(new TransactionEntry()));
+
+        List<TransactionEntry> result = transactionService.getTransactions("2026-01-01", "2026-01-31", 5L);
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void getTransactions_fromAfterTo() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> transactionService.getTransactions("2026-02-01", "2026-01-01", null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+    }
+
+    @Test
+    void getTransactions_invalidDateFormat() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> transactionService.getTransactions("01-01-2026", null, null));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
+    }
+
+    @Test
+    void getTransactions_categoryNotOwnedByUser() {
+        when(categoryRepository.findByIdAndUserId(88L, 1L)).thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> transactionService.getTransactions(null, null, 88L));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
+    }
+
+    @Test
+    void getTransactions_noResults() {
+        when(transactionEntryRepository.findFiltered(1L, null, null, null)).thenReturn(List.of());
+
+        List<TransactionEntry> result = transactionService.getTransactions(null, null, null);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
     }
 } 
  

@@ -26,6 +26,9 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [profitability, setProfitability] = useState(null);
   const [error, setError] = useState('');
+  const [pdfClientId, setPdfClientId] = useState('');
+  const [pdfStartDate, setPdfStartDate] = useState('');
+  const [pdfEndDate, setPdfEndDate] = useState('');
 
   const [clientForm, setClientForm] = useState({ name: '', email: '', company: '' });
   const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
@@ -142,6 +145,30 @@ export default function App() {
     }
   }
 
+  async function generatePdf(e) {
+    e.preventDefault();
+    setError('');
+    if (!pdfClientId || !pdfStartDate || !pdfEndDate) {
+      setError('Please fill in all PDF invoice fields.');
+      return;
+    }
+    try {
+      const url = `http://localhost:8080/api/invoices/generate-pdf?clientId=${pdfClientId}&startDate=${pdfStartDate}&endDate=${pdfEndDate}`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'invoice.pdf';
+      link.click();
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
   async function addInvoice(e) {
 
     const today = new Date().toISOString().split('T')[0];
@@ -192,6 +219,7 @@ export default function App() {
     } catch (e) {
       setError(e.message);
     }
+  }
 
   async function addExpense(e) {
     e.preventDefault();
@@ -541,6 +569,34 @@ export default function App() {
             ))
           )}
         </ul>
+      </Panel>
+
+      <Panel title="Generate PDF Invoice (UR-2)">
+        <form onSubmit={generatePdf} className="form-inline">
+          <select
+            value={pdfClientId}
+            onChange={(e) => setPdfClientId(e.target.value)}
+            required
+          >
+            <option value="">Select client</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={pdfStartDate}
+            onChange={(e) => setPdfStartDate(e.target.value)}
+            required
+          />
+          <input
+            type="date"
+            value={pdfEndDate}
+            onChange={(e) => setPdfEndDate(e.target.value)}
+            required
+          />
+          <button type="submit">Download PDF</button>
+        </form>
       </Panel>
 
       <Panel title="Profitability Check">
