@@ -22,12 +22,23 @@ async function request(path, options = {}) {
   if (response.status === 204) {
     return null;
   }
-  return response.json();
+  
+  const text = await response.text();
+  
+  if (!text) {
+    return null;
+  }
+  
+  return JSON.parse(text);
 }
 
 export const api = {
+  //listClients: () => request('/clients'),
+  //createClient: (payload) => request('/clients', { method: 'POST', body: JSON.stringify(payload) }),
   listClients: () => request('/clients'),
   createClient: (payload) => request('/clients', { method: 'POST', body: JSON.stringify(payload) }),
+  updateClient: (id, payload) => request(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  deleteClient: (id) => request(`/clients/${id}`, { method: 'DELETE' }),
   listProjects: () => request('/projects'),
   createProject: (payload) => request('/projects', { method: 'POST', body: JSON.stringify(payload) }),
   getProfitability: (projectId) => request(`/projects/${projectId}/profitability`),

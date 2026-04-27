@@ -28,6 +28,9 @@ public class Client {
 
     private String company;
 
+    @Column(columnDefinition="TEXT")
+    private String additionalInfo;
+
     public Long getId() {
         return id;
     }
@@ -58,5 +61,13 @@ public class Client {
 
     public void setCompany(String company) {
         this.company = company;
+    }
+
+    public String getAdditionalInfo(){
+        return additionalInfo;
+    }
+
+    public void setAdditionalInfo(String additionalInfo){
+        this.additionalInfo = additionalInfo;
     }
 }

@@ -26,14 +26,98 @@ export default function App() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [profitability, setProfitability] = useState(null);
   const [error, setError] = useState('');
-
-  const [clientForm, setClientForm] = useState({ name: '', email: '', company: '' });
+  const [clientForm, setClientForm] = useState({name: '', email: '', company: '', additionalInfo: '' });
   const [projectForm, setProjectForm] = useState({ name: '', clientId: '', budget: '', hourlyRate: '', currency: 'EUR', status: 'ACTIVE' });
   const [timeForm, setTimeForm] = useState({ projectId: '', date: '', hours: '', description: '' });
   const [invoiceForm, setInvoiceForm] = useState({ projectId: '', issueDate: '', dueDate: '', amount: '', taxRate: '', remind3DaysBefore: false, remind1DayBefore: false, remindOnDueDate: false });
   const [expenseForm, setExpenseForm] = useState({ projectId: '', amount: '', category: '', description: '', date: '' });
   const [successMsg, setSuccessMsg] = useState('');
 
+  const [selectedClient, setSelectedClient] = useState(null);
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientSearch, setShowClientSearch] = useState(false);
+
+  const [editingClient, setEditingClient] = useState(null);
+  const [editClientForm, setEditClientForm] = useState({
+    name: '',
+    email: '',
+    company: '',
+    additionalInfo: ''
+  });
+  function startEditClient() {
+    if (!selectedClient) return;
+  
+    setEditingClient(selectedClient);
+    setEditClientForm({
+      name: selectedClient.name || '',
+      email: selectedClient.email || '',
+      company: selectedClient.company || '',
+      additionalInfo: selectedClient.additionalInfo || ''
+    });
+  }
+  
+  async function saveClientEdit(e) {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+  
+    const trimmedName = editClientForm.name.trim();
+  
+    if (!trimmedName) {
+      setError('Name is required.');
+      return;
+    }
+  
+    if (trimmedName.length < 2 || trimmedName.length > 100) {
+      setError('Name must be between 2 and 100 characters.');
+      return;
+    }
+  
+    if (editClientForm.email && !editClientForm.email.includes('@')) {
+      setError('Invalid email format.');
+      return;
+    }
+  
+    try {
+      const updatedClient = await api.updateClient(editingClient.id, {
+        ...editClientForm,
+        name: trimmedName
+      });
+  
+      setSelectedClient(updatedClient);
+      setEditingClient(null);
+      setEditClientForm({ name: '', email: '', company: '', additionalInfo: '' });
+      setSuccessMsg('Client updated successfully!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+  
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  
+  async function deleteSelectedClient() {
+    if (!selectedClient) return;
+  
+    const confirmed = window.confirm(`Are you sure you want to delete client "${selectedClient.name}"?`);
+    if (!confirmed) return;
+  
+    try {
+      setError('');
+      setSuccessMsg('');
+  
+      await api.deleteClient(selectedClient.id);
+  
+      setSelectedClient(null);
+      setEditingClient(null);
+      setSuccessMsg('Client deleted successfully!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+  
+      loadAll();
+    } catch (e) {
+      setError(e.message);
+    }
+  }
 
   async function loadAll() {
     try {
@@ -97,7 +181,7 @@ export default function App() {
         name: trimmedName
       });
     
-      setClientForm({ name: '', email: '', company: '' });
+      setClientForm({ name: '', email: '', company: '', additionalInfo: '' });
       setSuccessMsg('Client created successfully!');
     
       setTimeout(() => setSuccessMsg(''), 3000);
@@ -223,6 +307,56 @@ export default function App() {
   const taxAmount = (subtotal * (taxRate / 100)).toFixed(2);
   const total = (subtotal + Number(taxAmount)).toFixed(2);
 
+  const latestClients = [...clients].slice(-5).reverse();
+
+  const filteredClients = clients.filter((client) => {
+    const query = clientSearch.toLowerCase().trim();
+  
+    if (!query) return true;
+  
+    return (
+      client.name?.toLowerCase().includes(query) ||
+      client.email?.toLowerCase().includes(query) ||
+      client.company?.toLowerCase().includes(query) ||
+      client.additionalInfo?.toLowerCase().includes(query)
+    );
+  });
+  
+  function matchesAdditionalInfo(client) {
+    const query = clientSearch.toLowerCase().trim();
+  
+    if (!query) return false;
+  
+    return (
+      client.additionalInfo?.toLowerCase().includes(query) &&
+      !client.name?.toLowerCase().includes(query) &&
+      !client.email?.toLowerCase().includes(query) &&
+      !client.company?.toLowerCase().includes(query)
+    );
+  }
+
+  function highlightMatch(text, query) {
+    if (!text || !query.trim()) {
+      return text || 'not provided';
+    }
+  
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase().trim();
+    const index = lowerText.indexOf(lowerQuery);
+  
+    if (index === -1) {
+      return text;
+    }
+  
+    return (
+      <>
+        {text.slice(0, index)}
+        <mark>{text.slice(index, index + lowerQuery.length)}</mark>
+        {text.slice(index + lowerQuery.length)}
+      </>
+    );
+  }
+
 
   async function createCategory(payload) {
     await api.createCategory(payload);
@@ -303,9 +437,183 @@ export default function App() {
             value={clientForm.company}
             onChange={(e) => setClientForm({ ...clientForm, company: e.target.value })}
           />
+          <textarea
+            placeholder="Additional info (phone, address, notes)"
+            value={clientForm.additionalInfo}
+            onChange={(e) => setClientForm({ ...clientForm, additionalInfo: e.target.value })}
+          />
           <button type="submit">Save</button>
         </form>
       </Panel>
+
+      <Panel title="Clients">
+      <div className="client-actions">
+  <button type="button" onClick={() => setShowClientSearch(true)}>
+    Search clients
+  </button>
+
+  <button
+    type="button"
+    disabled={!selectedClient}
+    onClick={startEditClient}
+  >
+    Edit selected
+  </button>
+
+  <button
+    type="button"
+    disabled={!selectedClient}
+    onClick={deleteSelectedClient}
+  >
+    Delete selected
+  </button>
+</div>
+
+  <h3>Latest 5 clients</h3>
+  <p className="hint">Click a client row to select it. After selecting, Edit and Delete become available.</p>
+
+  {latestClients.length === 0 ? (
+    <p>No clients found</p>
+  ) : (
+    <div className="client-table">
+  <div className="client-row client-header">
+    <span>Name</span>
+    <span>Email</span>
+    <span>Company</span>
+    <span>Status</span>
+  </div>
+
+  {latestClients.map((client) => (
+    <div
+      key={client.id}
+      className={`client-row ${selectedClient?.id === client.id ? 'selected' : ''}`}
+      onClick={() => setSelectedClient(client)}
+      title="Click to select this client"
+    >
+      <span>{client.name}</span>
+      <span>{client.email || 'No email'}</span>
+      <span>{client.company || 'No company'}</span>
+      <span>{selectedClient?.id === client.id ? 'Selected' : 'Click to select'}</span>
+    </div>
+  ))}
+</div>
+  )}
+
+  {selectedClient && (
+    <div className="result">
+      <p><strong>Selected client:</strong> {selectedClient.name}</p>
+      <p>Email: {selectedClient.email || 'not provided'}</p>
+      <p>Company: {selectedClient.company || 'not provided'}</p>
+      <p>
+  Additional info: {highlightMatch(selectedClient.additionalInfo, clientSearch)}
+</p>
+    </div>
+  )}
+
+{editingClient && (
+  <div className="result">
+    <h3>Edit client</h3>
+
+    <form onSubmit={saveClientEdit} className="form-inline">
+      <input
+        placeholder="Name"
+        value={editClientForm.name}
+        onChange={(e) => setEditClientForm({ ...editClientForm, name: e.target.value })}
+        required
+      />
+
+      <input
+        placeholder="Email"
+        type="email"
+        value={editClientForm.email}
+        onChange={(e) => setEditClientForm({ ...editClientForm, email: e.target.value })}
+      />
+
+      <input
+        placeholder="Company"
+        value={editClientForm.company}
+        onChange={(e) => setEditClientForm({ ...editClientForm, company: e.target.value })}
+      />
+
+      <textarea
+        placeholder="Additional info (phone, address, notes)"
+        value={editClientForm.additionalInfo}
+        onChange={(e) => setEditClientForm({ ...editClientForm, additionalInfo: e.target.value })}
+      />
+
+      <button type="submit">Save changes</button>
+
+      <button
+        type="button"
+        onClick={() => {
+          setEditingClient(null);
+          setEditClientForm({ name: '', email: '', company: '' });
+        }}
+      >
+        Cancel
+      </button>
+    </form>
+  </div>
+)}
+
+  {showClientSearch && (
+    <div className="result">
+      <h3>Search clients</h3>
+
+      <div className="search-row">
+  <input
+    className="search-input"
+    placeholder="Search by name, email or company"
+    value={clientSearch}
+    onChange={(e) => setClientSearch(e.target.value)}
+  />
+
+<button
+  type="button"
+  onClick={() => {
+    setShowClientSearch(false);
+    setClientSearch('');
+  }}
+>
+  Close
+</button>
+</div>
+
+      <div className="client-table">
+  <div className="client-row client-header">
+    <span>Name</span>
+    <span>Email</span>
+    <span>Company</span>
+    <span>Action</span>
+  </div>
+
+  {filteredClients.map((client) => (
+    <div
+      key={client.id}
+      className="client-row"
+      onClick={() => {
+        setSelectedClient(client);
+        setShowClientSearch(false);
+      }}
+      title="Click to select this client"
+    >
+      <span>{client.name}</span>
+      <span>{client.email || 'No email'}</span>
+      <span>{client.company || 'No company'}</span>
+      <span>
+        {matchesAdditionalInfo(client) ? (
+          <strong className="additional-match">Additional info match — select to view</strong>
+        ) : (
+          'Select'
+        )}
+      </span>
+    </div>
+  ))}
+</div>
+    </div>
+  )}
+</Panel>
+
 
       <Panel title="Add Project">
         <form onSubmit={addProject} className="form-inline">

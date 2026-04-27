@@ -112,3 +112,166 @@ ul {
   padding: 1rem;
   width: min(420px, 90vw);
 }
+
+
+.client-table {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.client-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1.5fr 1.5fr 1fr;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+  cursor: pointer;
+}
+
+.client-row:last-child {
+  border-bottom: none;
+}
+
+.client-row:hover {
+  background: #f5f7fb;
+}
+
+.client-header {
+  background: #eef1f7;
+  font-weight: 700;
+  cursor: default;
+}
+
+.client-row.selected {
+  background: #e3f2ff;
+  font-weight: 700;
+  border-left: 5px solid #1976d2;
+}
+
+.client-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+.hint {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: -4px;
+}
+
+
+.search-row {
+  display: flex;
+  gap: 12px;
+  margin: 10px 0 15px 0;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 260px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.search-row button {
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .search-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .search-row button {
+    width: 100%;
+  }
+}
+
+.client-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.client-actions button {
+  flex: 1;
+}
+
+@media (max-width: 600px) {
+  .client-actions {
+    flex-direction: column;
+  }
+
+  .client-actions button {
+    width: 100%;
+  }
+}
+
+.client-actions button:last-child {
+  background: #e53935;
+  color: white;
+}
+
+.client-actions button:last-child:not(:disabled) {
+  background: #e53935;
+  color: white;
+}
+
+.client-actions button:disabled {
+  background: #d6d6d6;
+  color: #777;
+  border: 1px solid #c4c4c4;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.client-actions button:disabled:hover {
+  background: #d6d6d6;
+}
+
+textarea {
+  min-height: 80px;
+  resize: vertical;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-family: inherit;
+}
+
+.form-inline textarea {
+  min-width: 260px;
+  flex: 1;
+}
+
+
+.additional-match {
+  color: #b26a00;
+  background: #fff3cd;
+  padding: 4px 6px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  white-space: normal;
+}
+
+
+mark {
+  background: #ffe082;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
