@@ -132,7 +132,7 @@ export default function App() {
     return;
   }
     setProjectErrors({});
-
+    
     try {
       await api.createProject({
         ...projectForm,
@@ -333,51 +333,44 @@ export default function App() {
 
       <Panel title="Add Project">
         <form onSubmit={addProject} className="form-inline">
-          <div>
-            <input
-              placeholder="Project name"
-              value={projectForm.name}
-              onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-            />
-            {projectErrors.name && <span style={{ color: 'red', fontSize: '0.85em' }}>{projectErrors.name}</span>}
-          </div>
-          <div>
-            <select
-              value={projectForm.clientId}
-              onChange={(e) => setProjectForm({ ...projectForm, clientId: e.target.value })}
-            >
-              <option value="">Select client</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
-            {projectErrors.clientId && <span style={{ color: 'red', fontSize: '0.85em' }}>{projectErrors.clientId}</span>}
-          </div>
-          <div>
-            <input
-              placeholder="Budget"
-              type="number"
-              step="0.01"
-              min="0"
-              value={projectForm.budget}
-              onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
-            />
-            {projectErrors.budget && <span style={{ color: 'red', fontSize: '0.85em' }}>{projectErrors.budget}</span>}
-          </div>
-          <div>
-            <input
-              placeholder="Hourly rate"
-              type="number"
-              step="0.01"
-              min="0"
-              value={projectForm.hourlyRate}
-              onChange={(e) => setProjectForm({ ...projectForm, hourlyRate: e.target.value })}
-            />
-            {projectErrors.hourlyRate && <span style={{ color: 'red', fontSize: '0.85em' }}>{projectErrors.hourlyRate}</span>}
-          </div>
+          <input
+            placeholder="Project name"
+            value={projectForm.name}
+            onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
+            required
+          />
+          <select
+            value={projectForm.clientId}
+            onChange={(e) => setProjectForm({ ...projectForm, clientId: e.target.value })}
+            required
+          >
+            <option value="">Select client</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <input
+            placeholder="Budget"
+            type="number"
+            step="0.01"
+            min="0"
+            value={projectForm.budget}
+            onChange={(e) => setProjectForm({ ...projectForm, budget: e.target.value })}
+            required
+          />
+          <input
+            placeholder="Hourly rate"
+            type="number"
+            step="0.01"
+            min="0"
+            value={projectForm.hourlyRate}
+            onChange={(e) => setProjectForm({ ...projectForm, hourlyRate: e.target.value })}
+            required
+          />
           <select
             value={projectForm.currency}
             onChange={(e) => setProjectForm({ ...projectForm, currency: e.target.value })}
+            required
           >
             <option value="EUR">EUR</option>
             <option value="USD">USD</option>
@@ -386,6 +379,7 @@ export default function App() {
           <select
             value={projectForm.status}
             onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
+            required
           >
             <option value="ACTIVE">ACTIVE</option>
             <option value="ARCHIVED">ARCHIVED</option>
