@@ -50,5 +50,7 @@ export const api = {
     return request(`/transactions${suffix}`);
   },
   getAlerts: () => request('/dashboard/alerts'),
-  createExpense: (payload) => request('/expenses', { method: 'POST', body: JSON.stringify(payload) })
+  createExpense: (payload) => request('/expenses', { method: 'POST', body: JSON.stringify(payload) }),
+  shareInvoice: (invoiceId, expiryDays = 7) => request(`/invoices/${invoiceId}/share?expiryDays=${expiryDays}`, { method: 'POST' }),
+  getSharedInvoice: (token) => request(`/invoices/shared/${token}`)
 };
