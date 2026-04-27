@@ -16,6 +16,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -147,5 +148,24 @@ class InvoiceReminderServiceTest {
         assertEquals(LocalDate.of(2026, 4, 7), saved.getRemindAt());
         assertEquals("DUE_MINUS_3", saved.getType());
         assertEquals("SCHEDULED", saved.getStatus());
+    }
+
+    @Test
+    void createReminders_shouldThrowException_whenDueDateInPast() {
+        invoice.setDueDate(LocalDate.now().minusDays(5));
+        assertThrows(IllegalArgumentException.class, () -> {
+            reminderService.createRemindersFromInvoice(invoice);
+        });
+    }
+
+    @Test
+    void createReminders_shouldNotSaveAnything_whenNoOptionsSelected() {
+        invoice.setRemind3DaysBefore(false);
+        invoice.setRemind1DayBefore(false);
+        invoice.setRemindOnDueDate(false);
+
+        reminderService.createRemindersFromInvoice(invoice);
+
+        verify(reminderRepository, never()).save(any());
     }
 }

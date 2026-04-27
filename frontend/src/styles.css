@@ -96,3 +96,19 @@ ul {
   margin: 0;
   padding-left: 1.2rem;
 }
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  display: grid;
+  place-items: center;
+}
+
+.dialog {
+  background: #fff;
+  border: 1px solid #dbe2f0;
+  border-radius: 8px;
+  padding: 1rem;
+  width: min(420px, 90vw);
+}

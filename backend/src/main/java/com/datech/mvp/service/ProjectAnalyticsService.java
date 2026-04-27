@@ -37,8 +37,11 @@ public class ProjectAnalyticsService {
                 .map(TimeEntry::getHours)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal revenue = totalHours.multiply(project.getHourlyRate());
-        BigDecimal profitability = revenue.subtract(project.getBudget());
+        BigDecimal revenue = totalHours.multiply(project.getHourlyRate())
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal profitability = revenue.subtract(project.getBudget())
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        
         boolean overBudget = revenue.compareTo(project.getBudget()) > 0;
 
         return new ProjectProfitabilityDto(projectId, project.getBudget(), revenue, profitability, overBudget);

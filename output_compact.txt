@@ -1,0 +1,2778 @@
+Creating compact project export... 
+ 
+================================ 
+SOURCE CODE FILES (FILTERED) 
+================================ 
+ 
+ 
+---------------------------------------- 
+File: DatechApplication.java 
+Path: backend\src\main\java\com\datech\mvp\DatechApplication.java 
+---------------------------------------- 
+package com.datech.mvp;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class DatechApplication {
+    public static void main(String[] args) {
+        SpringApplication.run(DatechApplication.class, args);
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: WebConfig.java 
+Path: backend\src\main\java\com\datech\mvp\config\WebConfig.java 
+---------------------------------------- 
+package com.datech.mvp.config;
+
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+                .allowedOrigins("http://localhost:5173")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*");
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: ClientController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\ClientController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Client;
+import com.datech.mvp.repository.ClientRepository;
+import com.datech.mvp.service.CrudService;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/clients")
+public class ClientController {
+    private final ClientRepository repository;
+    private final CrudService crudService;
+
+    public ClientController(ClientRepository repository, CrudService crudService) {
+        this.repository = repository;
+        this.crudService = crudService;
+    }
+
+    @GetMapping
+    public List<Client> all() {
+        return crudService.findAll(repository);
+    }
+
+    @PostMapping
+    public Client create(@Valid @RequestBody Client client) {
+        return crudService.save(repository, client);
+    }
+
+    @GetMapping("/{id}")
+    public Client one(@PathVariable Long id) {
+        return crudService.findById(repository, id);
+    }
+
+    @PutMapping("/{id}")
+    public Client update(@PathVariable Long id, @Valid @RequestBody Client client) {
+        client.setId(id);
+        return crudService.save(repository, client);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        crudService.delete(repository, id);
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: DashboardController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\DashboardController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.dto.DashboardAlertsDto;
+import com.datech.mvp.service.ProjectAnalyticsService;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/dashboard")
+public class DashboardController {
+    private final ProjectAnalyticsService analyticsService;
+
+    public DashboardController(ProjectAnalyticsService analyticsService) {
+        this.analyticsService = analyticsService;
+    }
+
+    @GetMapping("/alerts")
+    public DashboardAlertsDto alerts() {
+        return analyticsService.dashboardAlerts();
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: InvoiceController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\InvoiceController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.repository.InvoiceRepository;
+import com.datech.mvp.service.CrudService;
+import com.datech.mvp.service.InvoiceReminderService;
+import com.datech.mvp.service.ProjectAnalyticsService;
+import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import com.datech.mvp.service.InvoicePdfService;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import java.time.LocalDate;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/invoices")
+public class InvoiceController {
+    private final InvoiceRepository repository;
+    private final CrudService crudService;
+    private final ProjectAnalyticsService analyticsService;
+    private final InvoicePdfService invoicePdfService;
+    private final InvoiceReminderService reminderService;
+
+    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService, reminderService) {
+        this.repository = repository;
+        this.crudService = crudService;
+        this.analyticsService = analyticsService;
+        this.invoicePdfService = invoicePdfService;
+        this.reminderService = reminderService;
+    }
+
+    @GetMapping
+    public List<Invoice> all() {
+        return crudService.findAll(repository);
+    }
+
+    @PostMapping
+    public Invoice create(@Valid @RequestBody Invoice invoice) {
+        validateInvoiceReminderSettings(invoice);
+
+        Invoice saved = crudService.save(repository, invoice);
+        reminderService.createRemindersFromInvoice(saved);
+        return saved;
+    }
+
+    @GetMapping("/{id}")
+    public Invoice one(@PathVariable Long id) {
+        return crudService.findById(repository, id);
+    }
+
+
+    @PutMapping("/{id}")
+    public Invoice update(@PathVariable Long id, @Valid @RequestBody Invoice invoice) {
+        invoice.setId(id);
+        validateInvoiceReminderSettings(invoice);
+
+        Invoice saved = crudService.save(repository, invoice);
+
+        if ("PAID".equalsIgnoreCase(saved.getStatus())) {
+            reminderService.cancelScheduledReminders(saved.getId());
+        }
+
+        return saved;
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        crudService.delete(repository, id);
+    }
+
+    @GetMapping("/overdue")
+    public List<Invoice> overdue() {
+        return analyticsService.overdueInvoices();
+    }
+
+    @GetMapping("/generate-pdf")
+    public ResponseEntity<byte[]> generatePdf(
+            @RequestParam Long clientId,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        byte[] pdf = invoicePdfService.generateInvoicePdf(
+                clientId,
+                LocalDate.parse(startDate),
+                LocalDate.parse(endDate)
+        );
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice.pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    } 
+    private void validateInvoiceReminderSettings(Invoice invoice) {
+        if (invoice.getDueDate() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Due date is required");
+        }
+
+        if (invoice.getDueDate().isBefore(LocalDate.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Due date cannot be in the past");
+        }
+
+        boolean anyReminderSelected =
+                Boolean.TRUE.equals(invoice.getRemind3DaysBefore()) ||
+                Boolean.TRUE.equals(invoice.getRemind1DayBefore()) ||
+                Boolean.TRUE.equals(invoice.getRemindOnDueDate());
+
+        if (!anyReminderSelected) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one reminder option must be selected");
+        }
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: InvoiceReminderController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\InvoiceReminderController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.InvoiceReminder;
+import com.datech.mvp.service.InvoiceReminderService;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/invoice-reminders")
+public class InvoiceReminderController {
+
+    private final InvoiceReminderService reminderService;
+
+    public InvoiceReminderController(InvoiceReminderService reminderService) {
+        this.reminderService = reminderService;
+    }
+
+    @GetMapping
+    public List<InvoiceReminder> all(@RequestParam(required = false) Long invoiceId) {
+        if (invoiceId != null) {
+            return reminderService.getByInvoiceId(invoiceId);
+        }
+        return reminderService.dueReminders();
+    }
+} 
+ 
+---------------------------------------- 
+File: InvoiceShareController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\InvoiceShareController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.repository.InvoiceRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
+// UR-7: Client Portal - Invoice View
+@RestController
+@RequestMapping("/api/invoices")
+public class InvoiceShareController {
+
+    private final InvoiceRepository repository;
+    private final Map<String, Map<String, Object>> shareTokens = new HashMap<>();
+
+    public InvoiceShareController(InvoiceRepository repository) {
+        this.repository = repository;
+    }
+
+    // UR-7: Generate shareable read-only link
+    @PostMapping("/{id}/share")
+    public Map<String, String> generateShareLink(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "7") int expiryDays) {
+
+        Invoice invoice = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invoice not found"));
+
+        if (invoice.getStatus() == null || invoice.getStatus().equalsIgnoreCase("DRAFT")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Draft invoices cannot be shared. Change status to Sent first.");
+        }
+
+        String token = UUID.randomUUID().toString();
+        LocalDateTime expiresAt = expiryDays > 0 ? LocalDateTime.now().plusDays(expiryDays) : null;
+
+        Map<String, Object> tokenData = new HashMap<>();
+        tokenData.put("invoiceId", id);
+        tokenData.put("expiresAt", expiresAt);
+        shareTokens.put(token, tokenData);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("shareUrl", "/api/invoices/shared/" + token);
+        response.put("token", token);
+        response.put("expiresAt", expiresAt != null ? expiresAt.toString() : "never");
+        return response;
+    }
+
+    // UR-7: View invoice via share token (no login required)
+    @GetMapping("/shared/{token}")
+    public Map<String, Object> viewSharedInvoice(@PathVariable String token) {
+
+        Map<String, Object> tokenData = shareTokens.get(token);
+        if (tokenData == null) {
+            throw new ResponseStatusException(HttpStatus.GONE, "Share link is invalid or has been revoked.");
+        }
+
+        LocalDateTime expiresAt = (LocalDateTime) tokenData.get("expiresAt");
+        if (expiresAt != null && LocalDateTime.now().isAfter(expiresAt)) {
+            shareTokens.remove(token);
+            throw new ResponseStatusException(HttpStatus.GONE, "Share link has expired.");
+        }
+
+        Long invoiceId = (Long) tokenData.get("invoiceId");
+        Invoice invoice = repository.findById(invoiceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invoice not found"));
+
+        Map<String, Object> readOnlyView = new HashMap<>();
+        readOnlyView.put("id", invoice.getId());
+        readOnlyView.put("status", invoice.getStatus());
+        readOnlyView.put("dueDate", invoice.getDueDate());
+        readOnlyView.put("readOnly", true);
+        return readOnlyView;
+    }
+
+    // UR-7: Revoke a share link
+    @DeleteMapping("/shared/{token}")
+    public Map<String, String> revokeShareLink(@PathVariable String token) {
+        if (!shareTokens.containsKey(token)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Token not found.");
+        }
+        shareTokens.remove(token);
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Share link revoked successfully.");
+        return response;
+    }
+} 
+ 
+---------------------------------------- 
+File: PaymentController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\PaymentController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Payment;
+import com.datech.mvp.repository.PaymentRepository;
+import com.datech.mvp.service.CrudService;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/payments")
+public class PaymentController {
+    private final PaymentRepository repository;
+    private final CrudService crudService;
+
+    public PaymentController(PaymentRepository repository, CrudService crudService) {
+        this.repository = repository;
+        this.crudService = crudService;
+    }
+
+    @GetMapping
+    public List<Payment> all(@RequestParam(required = false) Long invoiceId) {
+        if (invoiceId != null) {
+            return repository.findByInvoiceId(invoiceId);
+        }
+        return crudService.findAll(repository);
+    }
+
+    @PostMapping
+    public Payment create(@Valid @RequestBody Payment payment) {
+        return crudService.save(repository, payment);
+    }
+
+    @GetMapping("/{id}")
+    public Payment one(@PathVariable Long id) {
+        return crudService.findById(repository, id);
+    }
+
+    @PutMapping("/{id}")
+    public Payment update(@PathVariable Long id, @Valid @RequestBody Payment payment) {
+        payment.setId(id);
+        return crudService.save(repository, payment);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        crudService.delete(repository, id);
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: ProjectController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\ProjectController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.dto.ProjectProfitabilityDto;
+import com.datech.mvp.model.Project;
+import com.datech.mvp.repository.ProjectRepository;
+import com.datech.mvp.service.CrudService;
+import com.datech.mvp.service.ProjectAnalyticsService;
+import jakarta.validation.Valid;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/projects")
+public class ProjectController {
+    private final ProjectRepository repository;
+    private final CrudService crudService;
+    private final ProjectAnalyticsService analyticsService;
+
+    public ProjectController(ProjectRepository repository,
+                             CrudService crudService,
+                             ProjectAnalyticsService analyticsService) {
+        this.repository = repository;
+        this.crudService = crudService;
+        this.analyticsService = analyticsService;
+    }
+
+    @GetMapping
+    public List<Project> all() {
+        return crudService.findAll(repository);
+    }
+
+    @PostMapping
+    public Project create(@Valid @RequestBody Project project) {
+        normalizeAndValidate(project, null);
+        return crudService.save(repository, project);
+    }
+
+    @GetMapping("/{id}")
+    public Project one(@PathVariable Long id) {
+        return crudService.findById(repository, id);
+    }
+
+    @PutMapping("/{id}")
+    public Project update(@PathVariable Long id, @Valid @RequestBody Project project) {
+        project.setId(id);
+        normalizeAndValidate(project, id);
+        return crudService.save(repository, project);
+    }
+
+    @DeleteMapping("/{id}")
+    public void delete(@PathVariable Long id) {
+        crudService.delete(repository, id);
+    }
+
+    @GetMapping("/{id}/profitability")
+    public ProjectProfitabilityDto profitability(@PathVariable Long id) {
+        return analyticsService.profitability(id);
+    }
+
+    @GetMapping("/{id}/budget-status")
+        public Map<String, Boolean> budgetStatus(@PathVariable Long id) {
+            return Map.of("overBudget", analyticsService.isBudgetExceeded(id));
+        }
+
+    private void normalizeAndValidate(Project project, Long currentId) {
+        if (project.getCurrency() == null || project.getCurrency().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Currency is required");
+        }
+
+        project.setCurrency(project.getCurrency().toUpperCase());
+        if (project.getCurrency().length() != 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Currency must be a 3-letter code");
+        }
+
+        if (project.getStatus() == null || project.getStatus().isBlank()) {
+            project.setStatus("ACTIVE");
+        } else {
+            project.setStatus(project.getStatus().toUpperCase());
+        }
+
+        if (!project.getStatus().equals("ACTIVE") && !project.getStatus().equals("ARCHIVED")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Status must be ACTIVE or ARCHIVED");
+        }
+
+        repository.findByClientIdAndNameIgnoreCase(project.getClientId(), project.getName())
+                .ifPresent(existing -> {
+                    boolean sameRecord = currentId != null && existing.getId().equals(currentId);
+                    if (!sameRecord) {
+                        throw new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "Project name must be unique per client"
+                        );
+                    }
+                });
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: RecurringInvoiceController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\RecurringInvoiceController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.repository.InvoiceRepository;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.util.*;
+
+// UR-8: Recurring Invoice Generation
+@RestController
+@RequestMapping("/api/invoices/recurring")
+public class RecurringInvoiceController {
+
+    private final InvoiceRepository repository;
+
+    // In-memory schedule store: scheduleId -> schedule data
+    private final Map<String, Map<String, Object>> schedules = new HashMap<>();
+
+    public RecurringInvoiceController(InvoiceRepository repository) {
+        this.repository = repository;
+    }
+
+    // UR-8: Create a recurring invoice schedule
+    @PostMapping
+    public Map<String, Object> createSchedule(@RequestBody Map<String, Object> request) {
+
+        String interval = (String) request.get("interval");
+        String startDateStr = (String) request.get("startDate");
+        String endDateStr = (String) request.get("endDate");
+        Object clientId = request.get("clientId");
+
+        // Validation
+        if (clientId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Client is required.");
+        }
+        if (interval == null || !List.of("WEEKLY", "MONTHLY", "QUARTERLY").contains(interval.toUpperCase())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Interval must be WEEKLY, MONTHLY, or QUARTERLY.");
+        }
+        if (startDateStr == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date is required.");
+        }
+
+        LocalDate startDate = LocalDate.parse(startDateStr);
+        if (startDate.isBefore(LocalDate.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Start date must be today or a future date.");
+        }
+
+        if (endDateStr != null) {
+            LocalDate endDate = LocalDate.parse(endDateStr);
+            if (!endDate.isAfter(startDate)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "End date must be after start date.");
+            }
+        }
+
+        // Save schedule
+        String scheduleId = UUID.randomUUID().toString();
+        Map<String, Object> schedule = new HashMap<>();
+        schedule.put("scheduleId", scheduleId);
+        schedule.put("clientId", clientId);
+        schedule.put("interval", interval.toUpperCase());
+        schedule.put("startDate", startDateStr);
+        schedule.put("endDate", endDateStr);
+        schedule.put("status", "ACTIVE");
+        schedules.put(scheduleId, schedule);
+
+        return schedule;
+    }
+
+    // UR-8: Cancel a recurring schedule
+    @DeleteMapping("/{scheduleId}")
+    public Map<String, String> cancelSchedule(@PathVariable String scheduleId) {
+        if (!schedules.containsKey(scheduleId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Schedule not found.");
+        }
+        schedules.get(scheduleId).put("status", "CANCELLED");
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Schedule cancelled successfully.");
+        return response;
+    }
+
+    // UR-8: Get all schedules
+    @GetMapping
+    public Collection<Map<String, Object>> getAllSchedules() {
+        return schedules.values();
+    }
+} 
+ 
+---------------------------------------- 
+File: TimeEntryController.java 
+Path: backend\src\main\java\com\datech\mvp\controller\TimeEntryController.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Project;
+import com.datech.mvp.model.TimeEntry;
+import com.datech.mvp.repository.ProjectRepository;
+import com.datech.mvp.repository.TimeEntryRepository;
+import com.datech.mvp.service.CrudService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/time-entries")
+public class TimeEntryController {
+
+    private final TimeEntryRepository repository;
+    private final ProjectRepository projectRepository;
+    private final CrudService crudService;
+
+    public TimeEntryController(TimeEntryRepository repository,
+                               ProjectRepository projectRepository,
+                               CrudService crudService) {
+        this.repository = repository;
+        this.projectRepository = projectRepository;
+        this.crudService = crudService;
+    }
+
+    @PostMapping
+    public TimeEntry create(@Valid @RequestBody TimeEntry entry) {
+        validateProject(entry.getProjectId());
+        return crudService.save(repository, entry);
+    }
+
+    @PutMapping("/{id}")
+    public TimeEntry update(@PathVariable Long id, @Valid @RequestBody TimeEntry entry) {
+        entry.setId(id);
+        validateProject(entry.getProjectId());
+        return crudService.save(repository, entry);
+    }
+
+    private void validateProject(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Project does not exist"));
+
+        if ("ARCHIVED".equalsIgnoreCase(project.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Archived project cannot be used for new time entries");
+        }
+    }
+
+    @GetMapping
+    public List<TimeEntry> all(@RequestParam(required = false) Long projectId) {
+        if (projectId != null) {
+            return repository.findByProjectId(projectId);
+        }
+        return crudService.findAll(repository);
+    }
+
+    @GetMapping("/{id}")
+    public TimeEntry one(@PathVariable Long id) {
+        return crudService.findById(repository, id);
+    }
+} 
+ 
+---------------------------------------- 
+File: DashboardAlertsDto.java 
+Path: backend\src\main\java\com\datech\mvp\dto\DashboardAlertsDto.java 
+---------------------------------------- 
+package com.datech.mvp.dto;
+
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.model.Project;
+
+import java.util.List;
+
+public class DashboardAlertsDto {
+    private List<Project> overBudgetProjects;
+    private List<Invoice> overdueInvoices;
+
+    public DashboardAlertsDto(List<Project> overBudgetProjects, List<Invoice> overdueInvoices) {
+        this.overBudgetProjects = overBudgetProjects;
+        this.overdueInvoices = overdueInvoices;
+    }
+
+    public List<Project> getOverBudgetProjects() {
+        return overBudgetProjects;
+    }
+
+    public List<Invoice> getOverdueInvoices() {
+        return overdueInvoices;
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: ProjectProfitabilityDto.java 
+Path: backend\src\main\java\com\datech\mvp\dto\ProjectProfitabilityDto.java 
+---------------------------------------- 
+package com.datech.mvp.dto;
+
+import java.math.BigDecimal;
+
+public class ProjectProfitabilityDto {
+    private Long projectId;
+    private BigDecimal budget;
+    private BigDecimal revenue;
+    private BigDecimal profitability;
+    private boolean overBudget;
+
+    public ProjectProfitabilityDto(Long projectId, BigDecimal budget, BigDecimal revenue, BigDecimal profitability, boolean overBudget) {
+        this.projectId = projectId;
+        this.budget = budget;
+        this.revenue = revenue;
+        this.profitability = profitability;
+        this.overBudget = overBudget;
+    }
+
+    public Long getProjectId() {
+        return projectId;
+    }
+
+    public BigDecimal getBudget() {
+        return budget;
+    }
+
+    public BigDecimal getRevenue() {
+        return revenue;
+    }
+
+    public BigDecimal getProfitability() {
+        return profitability;
+    }
+
+    public boolean isOverBudget() {
+        return overBudget;
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: Client.java 
+Path: backend\src\main\java\com\datech\mvp\model\Client.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+
+@Entity
+@Table(name = "clients")
+public class Client {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotBlank
+    private String name;
+
+    @Email
+    private String email;
+
+    private String company;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getCompany() {
+        return company;
+    }
+
+    public void setCompany(String company) {
+        this.company = company;
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: Invoice.java 
+Path: backend\src\main\java\com\datech\mvp\model\Invoice.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "invoices")
+public class Invoice {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotNull
+    private Long projectId;
+
+    @NotNull
+    private LocalDate issueDate;
+
+    @NotNull
+    private LocalDate dueDate;
+
+    @NotNull
+    private BigDecimal amount;
+
+    private String status = "UNPAID";
+
+    private Boolean remind3DaysBefore = false;
+    private Boolean remind1DayBefore = false;
+    private Boolean remindOnDueDate = false;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getProjectId() {
+        return projectId;
+    }
+
+    public void setProjectId(Long projectId) {
+        this.projectId = projectId;
+    }
+
+    public LocalDate getIssueDate() {
+        return issueDate;
+    }
+
+    public void setIssueDate(LocalDate issueDate) {
+        this.issueDate = issueDate;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public Boolean getRemind3DaysBefore() {
+    return remind3DaysBefore;
+}
+
+    public void setRemind3DaysBefore(Boolean remind3DaysBefore) {
+        this.remind3DaysBefore = remind3DaysBefore;
+    }
+
+    public Boolean getRemind1DayBefore() {
+        return remind1DayBefore;
+    }
+
+    public void setRemind1DayBefore(Boolean remind1DayBefore) {
+        this.remind1DayBefore = remind1DayBefore;
+    }
+
+    public Boolean getRemindOnDueDate() {
+        return remindOnDueDate;
+    }
+
+    public void setRemindOnDueDate(Boolean remindOnDueDate) {
+        this.remindOnDueDate = remindOnDueDate;
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: InvoiceReminder.java 
+Path: backend\src\main\java\com\datech\mvp\model\InvoiceReminder.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "invoice_reminders")
+public class InvoiceReminder {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotNull
+    private Long invoiceId;
+
+    @NotNull
+    private LocalDate remindAt;
+
+    @NotNull
+    private String type;
+
+    @NotNull
+    private String status = "SCHEDULED";
+
+    public Long getId() {
+        return id;
+    }
+
+    public Long getInvoiceId() {
+        return invoiceId;
+    }
+
+    public void setInvoiceId(Long invoiceId) {
+        this.invoiceId = invoiceId;
+    }
+
+    public LocalDate getRemindAt() {
+        return remindAt;
+    }
+
+    public void setRemindAt(LocalDate remindAt) {
+        this.remindAt = remindAt;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: Payment.java 
+Path: backend\src\main\java\com\datech\mvp\model\Payment.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "payments")
+public class Payment {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotNull
+    private Long invoiceId;
+
+    @NotNull
+    private LocalDate paymentDate;
+
+    @NotNull
+    private BigDecimal amount;
+
+    private String method;
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public Long getInvoiceId() {
+        return invoiceId;
+    }
+
+    public void setInvoiceId(Long invoiceId) {
+        this.invoiceId = invoiceId;
+    }
+
+    public LocalDate getPaymentDate() {
+        return paymentDate;
+    }
+
+    public void setPaymentDate(LocalDate paymentDate) {
+        this.paymentDate = paymentDate;
+    }
+
+    public BigDecimal getAmount() {
+        return amount;
+    }
+
+    public void setAmount(BigDecimal amount) {
+        this.amount = amount;
+    }
+
+    public String getMethod() {
+        return method;
+    }
+
+    public void setMethod(String method) {
+        this.method = method;
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: Project.java 
+Path: backend\src\main\java\com\datech\mvp\model\Project.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "projects")
+public class Project {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotBlank
+    private String name;
+
+    @NotNull
+    private Long clientId;
+
+    @NotNull
+    @DecimalMin(value = "0.00", inclusive = true)
+    private BigDecimal budget;
+
+    @NotNull
+    @DecimalMin(value = "0.00", inclusive = true)
+    private BigDecimal hourlyRate;
+
+    @NotBlank
+    private String currency = "EUR";
+
+    private LocalDate startDate;
+
+    private LocalDate endDate;
+
+    private String status = "ACTIVE";
+
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public Long getClientId() {
+        return clientId;
+    }
+
+    public void setClientId(Long clientId) {
+        this.clientId = clientId;
+    }
+
+    public BigDecimal getBudget() {
+        return budget;
+    }
+
+    public void setBudget(BigDecimal budget) {
+        this.budget = budget;
+    }
+
+    public BigDecimal getHourlyRate() {
+        return hourlyRate;
+    }
+
+    public void setHourlyRate(BigDecimal hourlyRate) {
+        this.hourlyRate = hourlyRate;
+    }
+
+    public String getCurrency() {
+        return currency;
+    }
+
+    public void setCurrency(String currency) {
+        this.currency = currency;
+    }
+
+    public LocalDate getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
+
+    public LocalDate getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+} 
+ 
+---------------------------------------- 
+File: TimeEntry.java 
+Path: backend\src\main\java\com\datech\mvp\model\TimeEntry.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
+@Entity
+@Table(name = "time_entries")
+public class TimeEntry {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotNull
+    private Long projectId;
+
+    @NotNull
+    @PastOrPresent
+    private LocalDate date;
+
+    @NotNull
+    @DecimalMin(value = "0.01", message = "Hours must be greater than 0")
+    @DecimalMax(value = "24.00", message = "Hours must be at most 24")
+    @Digits(integer = 2, fraction = 2, message = "Hours must have at most 2 decimal places")
+    private BigDecimal hours;
+
+    private String description;
+
+    private boolean billable = true;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
+    public LocalDate getDate() { return date; }
+    public void setDate(LocalDate date) { this.date = date; }
+    public BigDecimal getHours() { return hours; }
+    public void setHours(BigDecimal hours) { this.hours = hours; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public boolean isBillable() { return billable; }
+    public void setBillable(boolean billable) { this.billable = billable; }
+} 
+ 
+---------------------------------------- 
+File: ClientRepository.java 
+Path: backend\src\main\java\com\datech\mvp\repository\ClientRepository.java 
+---------------------------------------- 
+package com.datech.mvp.repository;
+
+import com.datech.mvp.model.Client;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ClientRepository extends JpaRepository<Client, Long> {
+}
+ 
+ 
+---------------------------------------- 
+File: InvoiceReminderRepository.java 
+Path: backend\src\main\java\com\datech\mvp\repository\InvoiceReminderRepository.java 
+---------------------------------------- 
+package com.datech.mvp.repository;
+
+import com.datech.mvp.model.InvoiceReminder;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDate;
+import java.util.List;
+
+public interface InvoiceReminderRepository extends JpaRepository<InvoiceReminder, Long> {
+    List<InvoiceReminder> findByInvoiceId(Long invoiceId);
+    List<InvoiceReminder> findByStatusAndRemindAtLessThanEqual(String status, LocalDate date);
+} 
+ 
+---------------------------------------- 
+File: InvoiceRepository.java 
+Path: backend\src\main\java\com\datech\mvp\repository\InvoiceRepository.java 
+---------------------------------------- 
+package com.datech.mvp.repository;
+
+import com.datech.mvp.model.Invoice;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.time.LocalDate;
+import java.util.List;
+
+public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
+    List<Invoice> findByStatusAndDueDateBefore(String status, LocalDate date);
+}
+ 
+ 
+---------------------------------------- 
+File: PaymentRepository.java 
+Path: backend\src\main\java\com\datech\mvp\repository\PaymentRepository.java 
+---------------------------------------- 
+package com.datech.mvp.repository;
+
+import com.datech.mvp.model.Payment;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface PaymentRepository extends JpaRepository<Payment, Long> {
+    List<Payment> findByInvoiceId(Long invoiceId);
+}
+ 
+ 
+---------------------------------------- 
+File: ProjectRepository.java 
+Path: backend\src\main\java\com\datech\mvp\repository\ProjectRepository.java 
+---------------------------------------- 
+package com.datech.mvp.repository;
+
+import com.datech.mvp.model.Project;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface ProjectRepository extends JpaRepository<Project, Long> {
+    List<Project> findByClientId(Long clientId);
+
+    Optional<Project> findByClientIdAndNameIgnoreCase(Long clientId, String name);
+}
+ 
+ 
+---------------------------------------- 
+File: TimeEntryRepository.java 
+Path: backend\src\main\java\com\datech\mvp\repository\TimeEntryRepository.java 
+---------------------------------------- 
+package com.datech.mvp.repository;
+
+import com.datech.mvp.model.TimeEntry;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface TimeEntryRepository extends JpaRepository<TimeEntry, Long> {
+    List<TimeEntry> findByProjectId(Long projectId);
+}
+ 
+ 
+---------------------------------------- 
+File: CrudService.java 
+Path: backend\src\main\java\com\datech\mvp\service\CrudService.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+public class CrudService {
+    public <T> List<T> findAll(JpaRepository<T, Long> repository) {
+        return repository.findAll();
+    }
+
+    public <T> T save(JpaRepository<T, Long> repository, T entity) {
+        return repository.save(entity);
+    }
+
+    public <T> T findById(JpaRepository<T, Long> repository, Long id) {
+        return repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Entity not found: " + id));
+    }
+
+    public <T> void delete(JpaRepository<T, Long> repository, Long id) {
+        repository.deleteById(id);
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: InvoicePdfService.java 
+Path: backend\src\main\java\com\datech\mvp\service\InvoicePdfService.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.model.Client;
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.model.Project;
+import com.datech.mvp.model.TimeEntry;
+import com.datech.mvp.repository.ClientRepository;
+import com.datech.mvp.repository.ProjectRepository;
+import com.datech.mvp.repository.TimeEntryRepository;
+import com.itextpdf.text.*;
+import com.itextpdf.text.pdf.PdfWriter;
+import org.springframework.stereotype.Service;
+
+import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+public class InvoicePdfService {
+
+    private final ClientRepository clientRepository;
+    private final ProjectRepository projectRepository;
+    private final TimeEntryRepository timeEntryRepository;
+
+    public InvoicePdfService(ClientRepository clientRepository,
+                             ProjectRepository projectRepository,
+                             TimeEntryRepository timeEntryRepository) {
+        this.clientRepository = clientRepository;
+        this.projectRepository = projectRepository;
+        this.timeEntryRepository = timeEntryRepository;
+    }
+
+    public byte[] generateInvoicePdf(Long clientId, LocalDate startDate, LocalDate endDate) {
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("Start date must be before or equal to end date");
+        }
+        if (endDate.toEpochDay() - startDate.toEpochDay() > 365) {
+            throw new IllegalArgumentException("Date range cannot exceed 365 days");
+        }
+
+        Client client = clientRepository.findById(clientId)
+                .orElseThrow(() -> new IllegalArgumentException("Client not found: " + clientId));
+
+        List<Project> projects = projectRepository.findByClientId(clientId);
+
+        BigDecimal totalHours = BigDecimal.ZERO;
+        BigDecimal totalAmount = BigDecimal.ZERO;
+
+        for (Project project : projects) {
+            List<TimeEntry> entries = timeEntryRepository.findByProjectId(project.getId());
+            for (TimeEntry entry : entries) {
+                if (!entry.getDate().isBefore(startDate) && !entry.getDate().isAfter(endDate)) {
+                    totalHours = totalHours.add(entry.getHours());
+                    totalAmount = totalAmount.add(
+                            entry.getHours().multiply(project.getHourlyRate())
+                    );
+                }
+            }
+        }
+
+        totalHours = totalHours.setScale(2, RoundingMode.HALF_UP);
+        totalAmount = totalAmount.setScale(2, RoundingMode.HALF_UP);
+
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            Document document = new Document();
+            PdfWriter.getInstance(document, out);
+            document.open();
+
+            document.add(new Paragraph("INVOICE", FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20)));
+            document.add(new Paragraph(" "));
+            document.add(new Paragraph("Client: " + client.getName()));
+            document.add(new Paragraph("Date Range: " + startDate + " to " + endDate));
+            document.add(new Paragraph(" "));
+            document.add(new Paragraph("Total Hours: " + totalHours));
+            document.add(new Paragraph("Total Amount: " + totalAmount));
+
+            document.close();
+            return out.toByteArray();
+        } catch (DocumentException e) {
+            throw new RuntimeException("Failed to generate PDF", e);
+        }
+    }
+} 
+ 
+---------------------------------------- 
+File: InvoiceReminderService.java 
+Path: backend\src\main\java\com\datech\mvp\service\InvoiceReminderService.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.model.InvoiceReminder;
+import com.datech.mvp.repository.InvoiceReminderRepository;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.util.List;
+
+@Service
+public class InvoiceReminderService {
+
+    private final InvoiceReminderRepository reminderRepository;
+
+    public InvoiceReminderService(InvoiceReminderRepository reminderRepository) {
+        this.reminderRepository = reminderRepository;
+    }
+
+    public List<InvoiceReminder> getByInvoiceId(Long invoiceId) {
+        return reminderRepository.findByInvoiceId(invoiceId);
+    }
+
+    public void createRemindersFromInvoice(Invoice invoice) {
+        LocalDate dueDate = invoice.getDueDate();
+
+        if (Boolean.TRUE.equals(invoice.getRemind3DaysBefore())) {
+            createReminder(invoice.getId(), dueDate.minusDays(3), "DUE_MINUS_3");
+        }
+
+        if (Boolean.TRUE.equals(invoice.getRemind1DayBefore())) {
+            createReminder(invoice.getId(), dueDate.minusDays(1), "DUE_MINUS_1");
+        }
+
+        if (Boolean.TRUE.equals(invoice.getRemindOnDueDate())) {
+            createReminder(invoice.getId(), dueDate, "DUE_TODAY");
+        }
+    }
+
+    private void createReminder(Long invoiceId, LocalDate remindAt, String type) {
+        InvoiceReminder reminder = new InvoiceReminder();
+        reminder.setInvoiceId(invoiceId);
+        reminder.setRemindAt(remindAt);
+        reminder.setType(type);
+        reminder.setStatus("SCHEDULED");
+        reminderRepository.save(reminder);
+    }
+
+    
+    public void createDefaultReminders(Invoice invoice) {
+        LocalDate dueDate = invoice.getDueDate();
+
+        createReminder(invoice.getId(), dueDate.minusDays(3), "DUE_MINUS_3");
+        createReminder(invoice.getId(), dueDate.minusDays(1), "DUE_MINUS_1");
+        createReminder(invoice.getId(), dueDate, "DUE_TODAY");
+    }
+
+    public void cancelScheduledReminders(Long invoiceId) {
+        List<InvoiceReminder> reminders = reminderRepository.findByInvoiceId(invoiceId);
+        for (InvoiceReminder reminder : reminders) {
+            if ("SCHEDULED".equals(reminder.getStatus())) {
+                reminder.setStatus("CANCELED");
+                reminderRepository.save(reminder);
+            }
+        }
+    }
+
+    public List<InvoiceReminder> dueReminders() {
+        return reminderRepository.findByStatusAndRemindAtLessThanEqual("SCHEDULED", LocalDate.now());
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: ProjectAnalyticsService.java 
+Path: backend\src\main\java\com\datech\mvp\service\ProjectAnalyticsService.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.dto.DashboardAlertsDto;
+import com.datech.mvp.dto.ProjectProfitabilityDto;
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.model.Project;
+import com.datech.mvp.model.TimeEntry;
+import com.datech.mvp.repository.InvoiceRepository;
+import com.datech.mvp.repository.ProjectRepository;
+import com.datech.mvp.repository.TimeEntryRepository;
+import org.springframework.stereotype.Service;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+public class ProjectAnalyticsService {
+    private final ProjectRepository projectRepository;
+    private final TimeEntryRepository timeEntryRepository;
+    private final InvoiceRepository invoiceRepository;
+
+    public ProjectAnalyticsService(ProjectRepository projectRepository,
+                                   TimeEntryRepository timeEntryRepository,
+                                   InvoiceRepository invoiceRepository) {
+        this.projectRepository = projectRepository;
+        this.timeEntryRepository = timeEntryRepository;
+        this.invoiceRepository = invoiceRepository;
+    }
+
+    public ProjectProfitabilityDto profitability(Long projectId) {
+        Project project = projectRepository.findById(projectId)
+                .orElseThrow(() -> new IllegalArgumentException("Project not found: " + projectId));
+
+        BigDecimal totalHours = timeEntryRepository.findByProjectId(projectId).stream()
+                .map(TimeEntry::getHours)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal revenue = totalHours.multiply(project.getHourlyRate())
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal profitability = revenue.subtract(project.getBudget())
+                .setScale(2, java.math.RoundingMode.HALF_UP);
+        
+        boolean overBudget = revenue.compareTo(project.getBudget()) > 0;
+
+        return new ProjectProfitabilityDto(projectId, project.getBudget(), revenue, profitability, overBudget);
+    }
+
+    public boolean isBudgetExceeded(Long projectId) {
+        return profitability(projectId).isOverBudget();
+    }
+
+    public List<Invoice> overdueInvoices() {
+        return invoiceRepository.findByStatusAndDueDateBefore("UNPAID", LocalDate.now());
+    }
+
+    public DashboardAlertsDto dashboardAlerts() {
+        List<Project> allProjects = projectRepository.findAll();
+        List<Project> overBudgetProjects = new ArrayList<>();
+
+        for (Project project : allProjects) {
+            if (isBudgetExceeded(project.getId())) {
+                overBudgetProjects.add(project);
+            }
+        }
+
+        return new DashboardAlertsDto(overBudgetProjects, overdueInvoices());
+    }
+}
+ 
+ 
+---------------------------------------- 
+File: InvoiceControllerTest.java 
+Path: backend\src\test\java\com\datech\mvp\controller\InvoiceControllerTest.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.repository.InvoiceRepository;
+import com.datech.mvp.service.CrudService;
+import com.datech.mvp.service.InvoiceReminderService;
+import com.datech.mvp.service.ProjectAnalyticsService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class InvoiceControllerTest {
+
+    @Mock private InvoiceRepository repository;
+    @Mock private CrudService crudService;
+    @Mock private ProjectAnalyticsService analyticsService;
+    @Mock private InvoiceReminderService reminderService;
+
+    @InjectMocks
+    private InvoiceController controller;
+
+    private Invoice invoice;
+
+    @BeforeEach
+    void setUp() {
+        invoice = new Invoice();
+        invoice.setId(1L);
+        invoice.setDueDate(LocalDate.now().plusDays(5));
+        invoice.setRemind3DaysBefore(true);
+        invoice.setRemind1DayBefore(false);
+        invoice.setRemindOnDueDate(false);
+    }
+
+    @Test
+    void create_shouldSaveAndCreateReminders() {
+        when(crudService.save(repository, invoice)).thenReturn(invoice);
+
+        Invoice result = controller.create(invoice);
+
+        assertSame(invoice, result);
+        verify(crudService).save(repository, invoice);
+        verify(reminderService).createRemindersFromInvoice(invoice);
+    }
+
+    @Test
+    void create_shouldRejectNullDueDate() {
+        invoice.setDueDate(null);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.create(invoice));
+
+        assertTrue(ex.getReason().contains("Due date is required"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void create_shouldRejectPastDueDate() {
+        invoice.setDueDate(LocalDate.now().minusDays(1));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.create(invoice));
+
+        assertTrue(ex.getReason().contains("cannot be in the past"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void create_shouldRejectIfNoReminderSelected() {
+        invoice.setRemind3DaysBefore(false);
+        invoice.setRemind1DayBefore(false);
+        invoice.setRemindOnDueDate(false);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.create(invoice));
+
+        assertTrue(ex.getReason().contains("At least one reminder"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void update_shouldCancelRemindersWhenPaid() {
+        invoice.setStatus("PAID");
+        when(crudService.save(repository, invoice)).thenReturn(invoice);
+
+        controller.update(1L, invoice);
+
+        verify(reminderService).cancelScheduledReminders(1L);
+    }
+
+    @Test
+    void update_shouldNotCancelRemindersWhenNotPaid() {
+        invoice.setStatus("SENT");
+        when(crudService.save(repository, invoice)).thenReturn(invoice);
+
+        controller.update(1L, invoice);
+
+        verify(reminderService, never()).cancelScheduledReminders(any());
+    }
+
+    @Test
+    void all_shouldReturnAllInvoices() {
+        when(crudService.findAll(repository)).thenReturn(List.of(invoice));
+
+        List<Invoice> result = controller.all();
+
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void delete_shouldCallCrudService() {
+        controller.delete(1L);
+        verify(crudService).delete(repository, 1L);
+    }
+} 
+ 
+---------------------------------------- 
+File: InvoiceReminderControllerTest.java 
+Path: backend\src\test\java\com\datech\mvp\controller\InvoiceReminderControllerTest.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.InvoiceReminder;
+import com.datech.mvp.service.InvoiceReminderService;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class InvoiceReminderControllerTest {
+
+    @Mock
+    private InvoiceReminderService reminderService;
+
+    @InjectMocks
+    private InvoiceReminderController controller;
+
+    @Test
+    void all_shouldReturnDueRemindersWhenNoInvoiceId() {
+        InvoiceReminder r = new InvoiceReminder();
+        when(reminderService.dueReminders()).thenReturn(List.of(r));
+
+        List<InvoiceReminder> result = controller.all(null);
+
+        assertEquals(1, result.size());
+        verify(reminderService).dueReminders();
+        verify(reminderService, never()).getByInvoiceId(any());
+    }
+
+    @Test
+    void all_shouldReturnByInvoiceIdWhenProvided() {
+        InvoiceReminder r = new InvoiceReminder();
+        when(reminderService.getByInvoiceId(5L)).thenReturn(List.of(r));
+
+        List<InvoiceReminder> result = controller.all(5L);
+
+        assertEquals(1, result.size());
+        verify(reminderService).getByInvoiceId(5L);
+        verify(reminderService, never()).dueReminders();
+    }
+
+    @Test
+    void all_shouldReturnEmptyListWhenNoReminders() {
+        when(reminderService.dueReminders()).thenReturn(List.of());
+
+        List<InvoiceReminder> result = controller.all(null);
+
+        assertTrue(result.isEmpty());
+    }
+} 
+ 
+---------------------------------------- 
+File: InvoiceShareControllerTest.java 
+Path: backend\src\test\java\com\datech\mvp\controller\InvoiceShareControllerTest.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.repository.InvoiceRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class InvoiceShareControllerTest {
+
+    @Mock
+    private InvoiceRepository repository;
+
+    @InjectMocks
+    private InvoiceShareController controller;
+
+    private Invoice invoice;
+
+    @BeforeEach
+    void setUp() {
+        invoice = new Invoice();
+        invoice.setId(1L);
+        invoice.setStatus("SENT");
+        invoice.setDueDate(LocalDate.now().plusDays(10));
+    }
+
+    @Test
+    void generateShareLink_shouldReturnTokenForSentInvoice() {
+        when(repository.findById(1L)).thenReturn(Optional.of(invoice));
+
+        Map<String, String> result = controller.generateShareLink(1L, 7);
+
+        assertNotNull(result.get("token"));
+        assertTrue(result.get("shareUrl").contains("/api/invoices/shared/"));
+        assertEquals("7", result.get("expiryDays") != null ? result.get("expiryDays") : "7");
+    }
+
+    @Test
+    void generateShareLink_shouldRejectDraftInvoice() {
+        invoice.setStatus("DRAFT");
+        when(repository.findById(1L)).thenReturn(Optional.of(invoice));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.generateShareLink(1L, 7));
+
+        assertTrue(ex.getReason().contains("Draft invoices cannot be shared"));
+    }
+
+    @Test
+    void generateShareLink_shouldRejectNullStatus() {
+        invoice.setStatus(null);
+        when(repository.findById(1L)).thenReturn(Optional.of(invoice));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.generateShareLink(1L, 7));
+
+        assertTrue(ex.getReason().contains("Draft invoices cannot be shared"));
+    }
+
+    @Test
+    void viewSharedInvoice_shouldReturnReadOnlyView() {
+        when(repository.findById(1L)).thenReturn(Optional.of(invoice));
+        Map<String, String> linkResult = controller.generateShareLink(1L, 7);
+        String token = linkResult.get("token");
+
+        Map<String, Object> view = controller.viewSharedInvoice(token);
+
+        assertEquals(1L, view.get("id"));
+        assertEquals("SENT", view.get("status"));
+        assertEquals(true, view.get("readOnly"));
+    }
+
+    @Test
+    void viewSharedInvoice_shouldThrowGoneForInvalidToken() {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.viewSharedInvoice("invalid-token-xyz"));
+
+        assertTrue(ex.getReason().contains("invalid or has been revoked"));
+    }
+
+    @Test
+    void revokeShareLink_shouldInvalidateToken() {
+        when(repository.findById(1L)).thenReturn(Optional.of(invoice));
+        Map<String, String> linkResult = controller.generateShareLink(1L, 7);
+        String token = linkResult.get("token");
+
+        controller.revokeShareLink(token);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.viewSharedInvoice(token));
+        assertTrue(ex.getReason().contains("invalid or has been revoked"));
+    }
+
+    @Test
+    void generateShareLink_shouldThrowForNonExistentInvoice() {
+        when(repository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(ResponseStatusException.class,
+                () -> controller.generateShareLink(99L, 7));
+    }
+} 
+ 
+---------------------------------------- 
+File: ProjectControllerTest.java 
+Path: backend\src\test\java\com\datech\mvp\controller\ProjectControllerTest.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Project;
+import com.datech.mvp.repository.ProjectRepository;
+import com.datech.mvp.service.CrudService;
+import com.datech.mvp.service.ProjectAnalyticsService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class ProjectControllerTest {
+
+    @Mock
+    private ProjectRepository repository;
+
+    @Mock
+    private CrudService crudService;
+
+    @Mock
+    private ProjectAnalyticsService analyticsService;
+
+    @InjectMocks
+    private ProjectController controller;
+
+    private Project project;
+
+    @BeforeEach
+    void setUp() {
+        project = new Project();
+        project.setId(1L);
+        project.setName("Website Redesign");
+        project.setClientId(10L);
+        project.setBudget(new BigDecimal("1000.00"));
+        project.setHourlyRate(new BigDecimal("50.00"));
+        project.setCurrency("eur");
+        project.setStatus("active");
+    }
+
+    @Test
+    void create_shouldNormalizeCurrencyAndStatusAndSave() {
+        when(repository.findByClientIdAndNameIgnoreCase(10L, "Website Redesign"))
+                .thenReturn(Optional.empty());
+        when(crudService.save(repository, project)).thenReturn(project);
+
+        Project result = controller.create(project);
+
+        assertEquals("EUR", project.getCurrency());
+        assertEquals("ACTIVE", project.getStatus());
+        assertSame(project, result);
+        verify(crudService).save(repository, project);
+    }
+
+    @Test
+    void create_shouldRejectInvalidCurrencyLength() {
+        project.setCurrency("EU");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> controller.create(project));
+
+        assertTrue(ex.getReason().contains("3-letter code"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void create_shouldRejectDuplicateProjectName() {
+        Project existing = new Project();
+        existing.setId(99L);
+
+        when(repository.findByClientIdAndNameIgnoreCase(10L, "Website Redesign"))
+                .thenReturn(Optional.of(existing));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> controller.create(project));
+
+        assertTrue(ex.getReason().contains("unique per client"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void update_shouldAllowSameRecordDuplicateCheck() {
+        Project existing = new Project();
+        existing.setId(1L);
+
+        when(repository.findByClientIdAndNameIgnoreCase(10L, "Website Redesign"))
+                .thenReturn(Optional.of(existing));
+        when(crudService.save(repository, project)).thenReturn(project);
+
+        Project result = controller.update(1L, project);
+
+        assertEquals(1L, result.getId());
+        verify(crudService).save(repository, project);
+    }
+
+    @Test
+    void create_shouldRejectInvalidStatus() {
+        project.setStatus("DELETED");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> controller.create(project));
+
+        assertTrue(ex.getReason().contains("ACTIVE or ARCHIVED"));
+        verify(crudService, never()).save(any(), any());
+    }
+} 
+ 
+---------------------------------------- 
+File: RecurringInvoiceControllerTest.java 
+Path: backend\src\test\java\com\datech\mvp\controller\RecurringInvoiceControllerTest.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.repository.InvoiceRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@ExtendWith(MockitoExtension.class)
+class RecurringInvoiceControllerTest {
+
+    @Mock
+    private InvoiceRepository repository;
+
+    @InjectMocks
+    private RecurringInvoiceController controller;
+
+    private Map<String, Object> validRequest;
+
+    @BeforeEach
+    void setUp() {
+        validRequest = new HashMap<>();
+        validRequest.put("clientId", 1L);
+        validRequest.put("interval", "MONTHLY");
+        validRequest.put("startDate", LocalDate.now().plusDays(1).toString());
+    }
+
+    @Test
+    void createSchedule_shouldReturnScheduleForValidRequest() {
+        Map<String, Object> result = controller.createSchedule(validRequest);
+
+        assertNotNull(result.get("scheduleId"));
+        assertEquals("MONTHLY", result.get("interval"));
+        assertEquals("ACTIVE", result.get("status"));
+    }
+
+    @Test
+    void createSchedule_shouldRejectMissingClient() {
+        validRequest.remove("clientId");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.createSchedule(validRequest));
+
+        assertTrue(ex.getReason().contains("Client is required"));
+    }
+
+    @Test
+    void createSchedule_shouldRejectInvalidInterval() {
+        validRequest.put("interval", "DAILY");
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.createSchedule(validRequest));
+
+        assertTrue(ex.getReason().contains("WEEKLY, MONTHLY, or QUARTERLY"));
+    }
+
+    @Test
+    void createSchedule_shouldRejectPastStartDate() {
+        validRequest.put("startDate", LocalDate.now().minusDays(1).toString());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.createSchedule(validRequest));
+
+        assertTrue(ex.getReason().contains("today or a future date"));
+    }
+
+    @Test
+    void createSchedule_shouldRejectEndDateBeforeStartDate() {
+        validRequest.put("endDate", LocalDate.now().toString());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.createSchedule(validRequest));
+
+        assertTrue(ex.getReason().contains("End date must be after start date"));
+    }
+
+    @Test
+    void cancelSchedule_shouldSetStatusToCancelled() {
+        Map<String, Object> created = controller.createSchedule(validRequest);
+        String scheduleId = (String) created.get("scheduleId");
+
+        controller.cancelSchedule(scheduleId);
+
+        Map<String, Object> schedule = controller.getAllSchedules()
+                .stream().filter(s -> s.get("scheduleId").equals(scheduleId))
+                .findFirst().orElseThrow();
+
+        assertEquals("CANCELLED", schedule.get("status")); 
+ 
+---------------------------------------- 
+File: TimeEntryControllerTest.java 
+Path: backend\src\test\java\com\datech\mvp\controller\TimeEntryControllerTest.java 
+---------------------------------------- 
+package com.datech.mvp.controller;
+
+import com.datech.mvp.model.Project;
+import com.datech.mvp.model.TimeEntry;
+import com.datech.mvp.repository.ProjectRepository;
+import com.datech.mvp.repository.TimeEntryRepository;
+import com.datech.mvp.service.CrudService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class TimeEntryControllerTest {
+
+    @Mock
+    private TimeEntryRepository repository;
+    @Mock
+    private ProjectRepository projectRepository;
+    @Mock
+    private CrudService crudService;
+
+    @InjectMocks
+    private TimeEntryController controller;
+
+    private TimeEntry entry;
+
+    @BeforeEach
+    void setUp() {
+        entry = new TimeEntry();
+        entry.setProjectId(1L);
+        entry.setDate(LocalDate.of(2026, 3, 16));
+        entry.setHours(new BigDecimal("2.50"));
+        entry.setDescription("Design work");
+    }
+
+    @Test
+    void create_shouldSaveWhenProjectIsActive() {
+        Project project = new Project();
+        project.setId(1L);
+        project.setStatus("ACTIVE");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(crudService.save(repository, entry)).thenReturn(entry);
+
+        TimeEntry result = controller.create(entry);
+
+        assertSame(entry, result);
+        verify(crudService).save(repository, entry);
+    }
+
+    @Test
+    void create_shouldRejectArchivedProject() {
+        Project project = new Project();
+        project.setId(1L);
+        project.setStatus("ARCHIVED");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.create(entry));
+
+        assertTrue(ex.getReason().contains("Archived project"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void create_shouldRejectMissingProject() {
+        when(projectRepository.findById(1L)).thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> controller.create(entry));
+
+        assertTrue(ex.getReason().contains("Project does not exist"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void all_shouldReturnAllEntriesWhenNoProjectId() {
+        when(crudService.findAll(repository)).thenReturn(List.of(entry));
+
+        List<TimeEntry> result = controller.all(null);
+
+        assertEquals(1, result.size());
+        verify(crudService).findAll(repository);
+    }
+
+    @Test
+    void all_shouldReturnByProjectIdWhenProvided() {
+        when(repository.findByProjectId(1L)).thenReturn(List.of(entry));
+
+        List<TimeEntry> result = controller.all(1L);
+
+        assertEquals(1, result.size());
+        verify(repository).findByProjectId(1L);
+    }
+
+    @Test
+    void one_shouldReturnEntryById() {
+        when(crudService.findById(repository, 1L)).thenReturn(entry);
+
+        TimeEntry result = controller.one(1L);
+
+        assertSame(entry, result);
+    }
+
+    @Test
+    void update_shouldSaveWhenProjectIsActive() {
+        Project project = new Project();
+        project.setId(1L);
+        project.setStatus("ACTIVE");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(project));
+        when(crudService.save(repository, entry)).thenReturn(entry);
+
+        TimeEntry result = controller.update(1L, entry);
+
+        assertEquals(1L, result.getProjectId());
+        verify(crudService).save(repository, entry);
+    }
+} 
+ 
+---------------------------------------- 
+File: ProjectModelTest.java 
+Path: backend\src\test\java\com\datech\mvp\model\ProjectModelTest.java 
+---------------------------------------- 
+package com.datech.mvp.model;
+
+import org.junit.jupiter.api.Test;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import static org.junit.jupiter.api.Assertions.*;
+
+class ProjectModelTest {
+
+    @Test
+    void shouldSetAndGetAllFields() {
+        Project p = new Project();
+        p.setId(1L);
+        p.setName("Test Project");
+        p.setClientId(2L);
+        p.setBudget(new BigDecimal("1000.00"));
+        p.setHourlyRate(new BigDecimal("50.00"));
+        p.setCurrency("EUR");
+        p.setStatus("ACTIVE");
+        p.setStartDate(LocalDate.of(2026, 1, 1));
+        p.setEndDate(LocalDate.of(2026, 12, 31));
+
+        assertEquals(1L, p.getId());
+        assertEquals("Test Project", p.getName());
+        assertEquals(2L, p.getClientId());
+        assertEquals(new BigDecimal("1000.00"), p.getBudget());
+        assertEquals(new BigDecimal("50.00"), p.getHourlyRate());
+        assertEquals("EUR", p.getCurrency());
+        assertEquals("ACTIVE", p.getStatus());
+        assertEquals(LocalDate.of(2026, 1, 1), p.getStartDate());
+        assertEquals(LocalDate.of(2026, 12, 31), p.getEndDate());
+    }
+
+    @Test
+    void shouldHaveDefaultCurrencyEUR() {
+        Project p = new Project();
+        assertEquals("EUR", p.getCurrency());
+    }
+
+    @Test
+    void shouldHaveDefaultStatusACTIVE() {
+        Project p = new Project();
+        assertEquals("ACTIVE", p.getStatus());
+    }
+} 
+ 
+---------------------------------------- 
+File: InvoiceReminderServiceTest.java 
+Path: backend\src\test\java\com\datech\mvp\service\InvoiceReminderServiceTest.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.model.InvoiceReminder;
+import com.datech.mvp.repository.InvoiceReminderRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class InvoiceReminderServiceTest {
+
+    @Mock
+    private InvoiceReminderRepository reminderRepository;
+
+    @InjectMocks
+    private InvoiceReminderService reminderService;
+
+    private Invoice invoice;
+
+    @BeforeEach
+    void setUp() {
+        invoice = new Invoice();
+        invoice.setId(1L);
+        invoice.setProjectId(10L);
+        invoice.setIssueDate(LocalDate.of(2026, 4, 1));
+        invoice.setDueDate(LocalDate.of(2026, 4, 10));
+        invoice.setAmount(new BigDecimal("100.00"));
+        invoice.setStatus("UNPAID");
+    }
+
+    @Test
+    void createDefaultReminders_shouldCreateThreeReminders() {
+        reminderService.createDefaultReminders(invoice);
+
+        ArgumentCaptor<InvoiceReminder> captor = ArgumentCaptor.forClass(InvoiceReminder.class);
+        verify(reminderRepository, times(3)).save(captor.capture());
+
+        List<InvoiceReminder> saved = captor.getAllValues();
+        assertEquals(3, saved.size());
+
+        assertEquals(LocalDate.of(2026, 4, 7), saved.get(0).getRemindAt());
+        assertEquals("DUE_MINUS_3", saved.get(0).getType());
+        assertEquals("SCHEDULED", saved.get(0).getStatus());
+
+        assertEquals(LocalDate.of(2026, 4, 9), saved.get(1).getRemindAt());
+        assertEquals("DUE_MINUS_1", saved.get(1).getType());
+
+        assertEquals(LocalDate.of(2026, 4, 10), saved.get(2).getRemindAt());
+        assertEquals("DUE_TODAY", saved.get(2).getType());
+    }
+
+    @Test
+    void cancelScheduledReminders_shouldCancelOnlyScheduledOnes() {
+        InvoiceReminder r1 = new InvoiceReminder();
+        r1.setInvoiceId(1L);
+        r1.setStatus("SCHEDULED");
+
+        InvoiceReminder r2 = new InvoiceReminder();
+        r2.setInvoiceId(1L);
+        r2.setStatus("SENT");
+
+        when(reminderRepository.findByInvoiceId(1L)).thenReturn(List.of(r1, r2));
+
+        reminderService.cancelScheduledReminders(1L);
+
+        assertEquals("CANCELED", r1.getStatus());
+        assertEquals("SENT", r2.getStatus());
+
+        verify(reminderRepository, times(1)).save(r1);
+        verify(reminderRepository, never()).save(r2);
+    }
+
+    @Test
+    void dueReminders_shouldReturnScheduledRemindersUpToToday() {
+        InvoiceReminder r1 = new InvoiceReminder();
+        r1.setInvoiceId(1L);
+        r1.setStatus("SCHEDULED");
+
+        when(reminderRepository.findByStatusAndRemindAtLessThanEqual("SCHEDULED", LocalDate.now()))
+                .thenReturn(List.of(r1));
+
+        List<InvoiceReminder> result = reminderService.dueReminders();
+
+        assertEquals(1, result.size());
+        assertSame(r1, result.get(0));
+    }
+
+    @Test
+    void getByInvoiceId_shouldReturnRepositoryResults() {
+        InvoiceReminder r1 = new InvoiceReminder();
+        r1.setInvoiceId(1L);
+
+        when(reminderRepository.findByInvoiceId(1L)).thenReturn(List.of(r1));
+
+        List<InvoiceReminder> result = reminderService.getByInvoiceId(1L);
+
+        assertEquals(1, result.size());
+        assertSame(r1, result.get(0));
+        verify(reminderRepository).findByInvoiceId(1L);
+    }
+
+    @Test
+    void cancelScheduledReminders_shouldDoNothingWhenNoRemindersExist() {
+        when(reminderRepository.findByInvoiceId(1L)).thenReturn(List.of());
+
+        reminderService.cancelScheduledReminders(1L);
+
+        verify(reminderRepository).findByInvoiceId(1L);
+        verify(reminderRepository, never()).save(any());
+    }
+
+    @Test
+    void dueReminders_shouldReturnEmptyListWhenNothingIsDue() {
+        when(reminderRepository.findByStatusAndRemindAtLessThanEqual("SCHEDULED", LocalDate.now()))
+                .thenReturn(List.of());
+
+        List<InvoiceReminder> result = reminderService.dueReminders();
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void createRemindersFromInvoice_shouldCreateOnlySelectedReminderTypes() {
+        invoice.setRemind3DaysBefore(true);
+        invoice.setRemind1DayBefore(false);
+        invoice.setRemindOnDueDate(false);
+
+        reminderService.createRemindersFromInvoice(invoice);
+
+        ArgumentCaptor<InvoiceReminder> captor = ArgumentCaptor.forClass(InvoiceReminder.class);
+        verify(reminderRepository, times(1)).save(captor.capture());
+
+        InvoiceReminder saved = captor.getValue();
+        assertEquals(LocalDate.of(2026, 4, 7), saved.getRemindAt());
+        assertEquals("DUE_MINUS_3", saved.getType());
+        assertEquals("SCHEDULED", saved.getStatus());
+    }
+} 
+ 
+---------------------------------------- 
+File: ProjectAnalyticsServiceTest.java 
+Path: backend\src\test\java\com\datech\mvp\service\ProjectAnalyticsServiceTest.java 
+---------------------------------------- 
+package com.datech.mvp.service;
+
+import com.datech.mvp.dto.ProjectProfitabilityDto;
+import com.datech.mvp.model.Project;
+import com.datech.mvp.model.TimeEntry;
+import com.datech.mvp.repository.InvoiceRepository;
+import com.datech.mvp.repository.ProjectRepository;
+import com.datech.mvp.repository.TimeEntryRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+class ProjectAnalyticsServiceTest {
+
+    private ProjectRepository projectRepository;
+    private TimeEntryRepository timeEntryRepository;
+    private InvoiceRepository invoiceRepository;
+    private ProjectAnalyticsService service;
+
+    @BeforeEach
+    void setUp() {
+        projectRepository = Mockito.mock(ProjectRepository.class);
+        timeEntryRepository = Mockito.mock(TimeEntryRepository.class);
+        invoiceRepository = Mockito.mock(InvoiceRepository.class);
+        service = new ProjectAnalyticsService(projectRepository, timeEntryRepository, invoiceRepository);
+    }
+
+    private Project makeProject(Long id, String hourlyRate, String budget) {
+        Project p = new Project();
+        p.setId(id);
+        p.setName("Test Project");
+        p.setClientId(1L);
+        p.setHourlyRate(new BigDecimal(hourlyRate));
+        p.setBudget(new BigDecimal(budget));
+        return p;
+    }
+
+    private TimeEntry makeEntry(BigDecimal hours) {
+        TimeEntry e = new TimeEntry();
+        e.setHours(hours);
+        return e;
+    }
+
+    // FR-1: basic calculation 8h x 50 = 400.00
+    @Test
+    void profitability_basicCalculation() {
+        Project p = makeProject(1L, "50.00", "300.00");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(timeEntryRepository.findByProjectId(1L)).thenReturn(
+                List.of(makeEntry(new BigDecimal("8.00")))
+        );
+
+        ProjectProfitabilityDto result = service.profitability(1L);
+
+        assertEquals(new BigDecimal("400.00"), result.getRevenue());
+    }
+
+    // FR-1: result is rounded to 2 decimal places
+    @Test
+    void profitability_revenueRoundedToTwoDecimals() {
+        Project p = makeProject(1L, "33.33", "100.00");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(timeEntryRepository.findByProjectId(1L)).thenReturn(
+                List.of(makeEntry(new BigDecimal("3.00")))
+        );
+
+        ProjectProfitabilityDto result = service.profitability(1L);
+
+        assertEquals(2, result.getRevenue().scale());
+    }
+
+    // FR-1: multiple entries summed correctly
+    @Test
+    void profitability_multipleEntriesSummed() {
+        Project p = makeProject(1L, "50.00", "100.00");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(timeEntryRepository.findByProjectId(1L)).thenReturn(
+                List.of(
+                        makeEntry(new BigDecimal("2.00")),
+                        makeEntry(new BigDecimal("3.00")),
+                        makeEntry(new BigDecimal("3.00"))
+                )
+        );
+
+        ProjectProfitabilityDto result = service.profitability(1L);
+
+        assertEquals(new BigDecimal("400.00"), result.getRevenue());
+    }
+
+    // FR-1: zero entries = 0.00 revenue
+    @Test
+    void profitability_noEntries_revenueIsZero() {
+        Project p = makeProject(1L, "50.00", "100.00");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(timeEntryRepository.findByProjectId(1L)).thenReturn(List.of());
+
+        ProjectProfitabilityDto result = service.profitability(1L);
+
+        assertEquals(0, result.getRevenue().compareTo(BigDecimal.ZERO));
+    }
+
+    // FR-1: hourly rate 0.00 = total 0.00
+    @Test
+    void profitability_zeroRate_revenueIsZero() {
+        Project p = makeProject(1L, "0.00", "100.00");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(timeEntryRepository.findByProjectId(1L)).thenReturn(
+                List.of(makeEntry(new BigDecimal("8.00")))
+        );
+
+        ProjectProfitabilityDto result = service.profitability(1L);
+
+        assertEquals(0, result.getRevenue().compareTo(BigDecimal.ZERO));
+    }
+
+    // overBudget is true when revenue exceeds budget
+    @Test
+    void profitability_overBudget_true() {
+        Project p = makeProject(1L, "50.00", "300.00");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(timeEntryRepository.findByProjectId(1L)).thenReturn(
+                List.of(makeEntry(new BigDecimal("8.00")))
+        );
+
+        assertTrue(service.profitability(1L).isOverBudget());
+    }
+
+    // overBudget is false when revenue is under budget
+    @Test
+    void profitability_overBudget_false() {
+        Project p = makeProject(1L, "50.00", "500.00");
+        when(projectRepository.findById(1L)).thenReturn(Optional.of(p));
+        when(timeEntryRepository.findByProjectId(1L)).thenReturn(
+                List.of(makeEntry(new BigDecimal("8.00")))
+        );
+
+        assertFalse(service.profitability(1L).isOverBudget());
+    }
+
+    // project not found throws exception
+    @Test
+    void profitability_projectNotFound_throwsException() {
+        when(projectRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class, () -> service.profitability(99L));
+    }
+} 
+ 
+================================ 
+KEY CONFIGURATION FILES (ROOT) 
+================================ 
+ 
+ 
+---------------------------------------- 
+File: .gitignore 
+Path: ".gitignore" 
+---------------------------------------- 
+# Java
+backend/target/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# IDE/OS
+.vscode/
+.DS_Store
+ 
+ 
+---------------------------------------- 
+File: README.md 
+Path: "README.md" 
+---------------------------------------- 
+# Datech MVP
+
+Datech is a simple MVP system for freelancers to manage clients, projects, time tracking and invoicing in one place.
+
+## Stack
+
+- Frontend: React (SPA, Vite)
+- Backend: Spring Boot (Java 17)
+- Database: PostgreSQL
+- API: REST
+- Hosting later: AWS or Azure
+
+## Features Implemented
+
+- Client management (CRUD)
+- Project management (CRUD)
+- Time entry tracking (CRUD)
+- Invoice management (CRUD)
+- Payment records (CRUD API)
+- Budget overflow check per project
+- Profitability calculation from tracked hours and hourly rate
+- Overdue invoice detection
+- Dashboard alerts endpoint
+
+## Project Structure
+
+```
+.
+|- backend/          # Spring Boot REST API
+|- frontend/         # React SPA
+`- docker-compose.yml
+```
+
+## Run With Docker (DB + Backend)
+
+From repository root:
+
+```bash
+docker compose up --build
+```
+
+This starts:
+
+- PostgreSQL on `localhost:5432`
+- Backend API on `localhost:8080`
+
+## Run Frontend Locally
+
+In another terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend runs at `http://localhost:5173` and calls backend at `http://localhost:8080/api`.
+
+## Run Backend Locally (without Docker for backend)
+
+Ensure PostgreSQL is available (for example via `docker compose up db`) and then:
+
+```bash
+cd backend
+mvn spring-boot:run
+```
+
+## Main API Endpoints
+
+- `GET/POST /api/clients`
+- `GET/PUT/DELETE /api/clients/{id}`
+- `GET/POST /api/projects`
+- `GET/PUT/DELETE /api/projects/{id}`
+- `GET /api/projects/{id}/profitability`
+- `GET /api/projects/{id}/budget-status`
+- `GET/POST /api/time-entries`
+- `GET/PUT/DELETE /api/time-entries/{id}`
+- `GET/POST /api/invoices`
+- `GET/PUT/DELETE /api/invoices/{id}`
+- `GET /api/invoices/overdue`
+- `GET/POST /api/payments`
+- `GET/PUT/DELETE /api/payments/{id}`
+- `GET /api/dashboard/alerts`
+
+## Notes
+
+- This is an MVP baseline and uses simple entity-level JSON payloads.
+- Authentication/authorization is not yet implemented.
+- Deployment configs for AWS/Azure can be added as next step (for example with Terraform and CI/CD).
+ 

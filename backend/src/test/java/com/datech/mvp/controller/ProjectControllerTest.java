@@ -16,6 +16,9 @@ import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -108,5 +111,64 @@ class ProjectControllerTest {
 
         assertTrue(ex.getReason().contains("ACTIVE or ARCHIVED"));
         verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void create_shouldRejectNameTooShort() {
+        project.setName("A"); // Tik 1 simbolis, o reikalaujama 2-120
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, 
+            () -> controller.create(project));
+
+        assertTrue(ex.getReason().contains("2-120 characters"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void create_shouldRejectNameTooLong() {
+        // Sugeneruojame 121 simbolio pavadinimą
+        project.setName("a".repeat(121)); 
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, 
+            () -> controller.create(project));
+
+        assertTrue(ex.getReason().contains("2-120 characters"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void create_shouldRejectNegativeHourlyRate() {
+        project.setHourlyRate(new BigDecimal("-1.50"));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, 
+            () -> controller.create(project));
+
+        assertTrue(ex.getReason().contains("must be >= 0"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void create_shouldRejectNegativeBudget() {
+        project.setBudget(new BigDecimal("-100.00"));
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, 
+            () -> controller.create(project));
+
+        assertTrue(ex.getReason().contains("must be >= 0"));
+        verify(crudService, never()).save(any(), any());
+    }
+
+    @Test
+    void create_shouldAllowNullBudget() {
+        project.setBudget(null); // Biudžetas yra pasirenkamas (optional)
+
+        when(repository.findByClientIdAndNameIgnoreCase(anyLong(), anyString()))
+                .thenReturn(Optional.empty());
+        when(crudService.save(repository, project)).thenReturn(project);
+
+        Project result = controller.create(project);
+
+        assertNull(result.getBudget());
+        verify(crudService).save(repository, project);
     }
 }
