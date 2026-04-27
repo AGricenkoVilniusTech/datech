@@ -37,7 +37,7 @@ export default function App() {
 
   async function loadAll() {
     try {
-      setError('');
+      //setError('');
       const [c, p, t, i, a, r, cat, tx] = await Promise.all([
         api.listClients(),
         api.listProjects(),
@@ -110,10 +110,28 @@ export default function App() {
 
   async function addProject(e) {
     e.preventDefault();
+    setError('');
+    const trimmedName = projectForm.name.trim();
+    if (!trimmedName || trimmedName.length < 2) {
+      setError('Project name must be at least 2 characters.');
+      return;
+    }
+    if (trimmedName.length > 120) {
+      setError('Project name must be under 120 characters.');
+      return;
+    }
+    if (!projectForm.clientId) {
+      setError('Please select a client.');
+      return;
+    }
+    if (!projectForm.currency) {
+      setError('Currency is required.');
+      return;
+    }
     try {
-      setError('');
       await api.createProject({
         ...projectForm,
+        name: trimmedName,
         clientId: Number(projectForm.clientId),
         budget: Number(projectForm.budget),
         hourlyRate: Number(projectForm.hourlyRate)
@@ -143,6 +161,7 @@ export default function App() {
   }
 
   async function addInvoice(e) {
+    e.preventDefault();
 
     const today = new Date().toISOString().split('T')[0];
 
