@@ -2,6 +2,7 @@ package com.datech.mvp.controller;
 
 import com.datech.mvp.model.Invoice;
 import com.datech.mvp.repository.InvoiceRepository;
+import com.datech.mvp.service.InvoiceReminderService;
 import com.datech.mvp.service.CrudService;
 import com.datech.mvp.service.ProjectAnalyticsService;
 import jakarta.validation.Valid;
@@ -22,12 +23,14 @@ public class InvoiceController {
     private final CrudService crudService;
     private final ProjectAnalyticsService analyticsService;
     private final InvoicePdfService invoicePdfService;
+    private final InvoiceReminderService reminderService;
 
     public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService) {
         this.repository = repository;
         this.crudService = crudService;
         this.analyticsService = analyticsService;
         this.invoicePdfService = invoicePdfService;
+        this.reminderService = reminderService;
     }
 
     @GetMapping
@@ -37,7 +40,9 @@ public class InvoiceController {
 
     @PostMapping
     public Invoice create(@Valid @RequestBody Invoice invoice) {
-        return crudService.save(repository, invoice);
+        Invoice saved = crudService.save(repository, invoice);
+        reminderService.createRemindersFromInvoice(saved);
+        return saved;
     }
 
     @GetMapping("/{id}")

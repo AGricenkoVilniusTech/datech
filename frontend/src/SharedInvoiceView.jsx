@@ -1,4 +1,5 @@
 import React from 'react';
+
 export default function SharedInvoiceView({ token }) {
   const [data, setData] = React.useState(null);
   const [error, setError] = React.useState('');
@@ -38,7 +39,6 @@ export default function SharedInvoiceView({ token }) {
             {data.status}
           </span>
         </div>
-
         <div style={{ borderTop:'1px solid #f1f5f9', borderBottom:'1px solid #f1f5f9', padding:'20px 0', marginBottom:'24px' }}>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'12px' }}>
             <span style={{ color:'#64748b', fontSize:'14px' }}>Mokėjimo terminas</span>
@@ -49,7 +49,6 @@ export default function SharedInvoiceView({ token }) {
             <span style={{ fontSize:'14px', color:'#3b82f6' }}>Tik skaityti</span>
           </div>
         </div>
-
         <div style={{ background:'#f8fafc', borderRadius:'8px', padding:'16px', textAlign:'center' }}>
           <p style={{ fontSize:'12px', color:'#94a3b8', margin:'0 0 4px' }}>Ši nuoroda yra laikina ir skirta tik peržiūrai</p>
         </div>

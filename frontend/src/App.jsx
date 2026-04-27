@@ -23,6 +23,7 @@ export default function App() {
 
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
+  const [projectErrors, setProjectErrors] = useState({});
   const [timeEntries, setTimeEntries] = useState([]);
   const [invoices, setInvoices] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -44,7 +45,7 @@ export default function App() {
 
   async function loadAll() {
     try {
-      setError('');
+      //setError('');
       const [c, p, t, i, a, r, cat, tx] = await Promise.all([
         api.listClients(),
         api.listProjects(),
@@ -117,10 +118,32 @@ export default function App() {
 
   async function addProject(e) {
     e.preventDefault();
+    setError('');
+
+    const errors = {};
+    const trimmedName = projectForm.name.trim();
+
+    if (!trimmedName || trimmedName.length < 2)
+      errors.name = 'Project name must be at least 2 characters.';
+    if (trimmedName.length > 120)
+      errors.name = 'Project name must be under 120 characters.';
+    if (!projectForm.clientId)
+      errors.clientId = 'Please select a client.';
+    if (projectForm.hourlyRate < 0)
+      errors.hourlyRate = 'Hourly rate must be 0 or greater.';
+    if (projectForm.budget < 0)
+      errors.budget = 'Budget must be 0 or greater.';
+
+    if (Object.keys(errors).length > 0) {
+    setProjectErrors(errors);
+    return;
+  }
+    setProjectErrors({});
+    
     try {
-      setError('');
       await api.createProject({
         ...projectForm,
+        name: trimmedName,
         clientId: Number(projectForm.clientId),
         budget: Number(projectForm.budget),
         hourlyRate: Number(projectForm.hourlyRate)
@@ -150,6 +173,7 @@ export default function App() {
   }
 
   async function addInvoice(e) {
+    e.preventDefault();
 
     const today = new Date().toISOString().split('T')[0];
 
@@ -574,9 +598,9 @@ export default function App() {
     </main>
   );
 }
-
 function ShareInvoicePanel({ invoices }) {
   const [invoiceId, setInvoiceId] = useState('');
+  const [expiry, setExpiry] = useState('7');
   const [shareData, setShareData] = useState(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -588,13 +612,24 @@ function ShareInvoicePanel({ invoices }) {
     setErr('');
     setShareData(null);
     try {
-      const result = await api.shareInvoice(invoiceId);
+      const expiryDays = expiry === 'never' ? 0 : Number(expiry);
+      const result = await api.shareInvoice(invoiceId, expiryDays);
       const fullUrl = `${window.location.origin}/shared/${result.token}`;
-      setShareData({ url: fullUrl, expires: result.expiresAt });
+      setShareData({ url: fullUrl, expires: result.expiresAt, token: result.token });
     } catch (e) {
       setErr(e.message);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function revoke() {
+    try {
+      await api.revokeSharedInvoice(shareData.token);
+      setShareData(null);
+      setErr('');
+    } catch (e) {
+      setErr(e.message);
     }
   }
 
@@ -615,49 +650,40 @@ function ShareInvoicePanel({ invoices }) {
             </option>
           ))}
         </select>
+        <select value={expiry} onChange={(e) => setExpiry(e.target.value)}>
+          <option value="7">7 days</option>
+          <option value="30">30 days</option>
+          <option value="never">Never</option>
+        </select>
         <button type="button" onClick={generate} disabled={!invoiceId || loading}>
           {loading ? 'Generating...' : 'Generate Share Link'}
         </button>
       </div>
       {err && <p style={{ color: 'red' }}>{err}</p>}
       {shareData && (
-        <div style={{
-          border: '1px solid #e2e8f0',
-          borderRadius: '8px',
-          padding: '16px',
-          background: '#f8fafc',
-          marginTop: '12px'
-        }}>
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: '#f8fafc', marginTop: '12px' }}>
           <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>
-            Share URL (read-only) · Expires: {shareData.expires.slice(0, 10)}
+            Share URL (read-only) · Expires: {shareData.expires === 'never' ? 'Never' : shareData.expires.slice(0, 10)}
           </p>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <input
               readOnly
               value={shareData.url}
-              style={{
-                flex: 1,
-                padding: '8px',
-                borderRadius: '6px',
-                border: '1px solid #cbd5e1',
-                fontSize: '13px',
-                background: '#fff'
-              }}
+              style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
             />
             <button
               type="button"
               onClick={copy}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '6px',
-                background: copied ? '#22c55e' : '#3b82f6',
-                color: '#fff',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '13px'
-              }}
+              style={{ padding: '8px 16px', borderRadius: '6px', background: copied ? '#22c55e' : '#3b82f6', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '13px' }}
             >
               {copied ? '✓ Copied!' : 'Copy'}
+            </button>
+            <button
+              type="button"
+              onClick={revoke}
+              style={{ padding: '8px 16px', borderRadius: '6px', background: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '13px' }}
+            >
+              Revoke
             </button>
           </div>
         </div>
