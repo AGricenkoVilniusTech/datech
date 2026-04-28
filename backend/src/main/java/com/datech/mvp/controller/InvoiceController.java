@@ -1,20 +1,29 @@
 package com.datech.mvp.controller;
 
-import com.datech.mvp.model.Invoice;
-import com.datech.mvp.repository.InvoiceRepository;
-import com.datech.mvp.service.InvoiceReminderService;
-import com.datech.mvp.service.CrudService;
-import com.datech.mvp.service.ProjectAnalyticsService;
-import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.*;
-import com.datech.mvp.service.InvoicePdfService;
-import org.springframework.format.annotation.DateTimeFormat;
+import java.time.LocalDate;
+import java.util.List;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import java.time.LocalDate;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import com.datech.mvp.model.Invoice;
+import com.datech.mvp.repository.InvoiceRepository;
+import com.datech.mvp.service.CrudService;
+import com.datech.mvp.service.InvoicePdfService;
+import com.datech.mvp.service.InvoiceReminderService;
+import com.datech.mvp.service.ProjectAnalyticsService;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/invoices")
@@ -25,7 +34,7 @@ public class InvoiceController {
     private final InvoicePdfService invoicePdfService;
     private final InvoiceReminderService reminderService;
 
-    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService) {
+    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService, InvoiceReminderService reminderService) {
         this.repository = repository;
         this.crudService = crudService;
         this.analyticsService = analyticsService;

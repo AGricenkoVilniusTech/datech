@@ -585,20 +585,24 @@ export default function App() {
     <span>Name</span>
     <span>Email</span>
     <span>Company</span>
-    <span>Status</span>
   </div>
 
   {latestClients.map((client) => (
     <div
       key={client.id}
       className={`client-row ${selectedClient?.id === client.id ? 'selected' : ''}`}
-      onClick={() => setSelectedClient(client)}
-      title="Click to select this client"
+      onClick={() => {
+        if (selectedClient?.id === client.id) {
+          setSelectedClient(null);
+          setEditingClient(null);
+        } else {
+          setSelectedClient(client);
+        }
+      }}      title="Click to select this client"
     >
       <span>{client.name}</span>
       <span>{client.email || 'No email'}</span>
       <span>{client.company || 'No company'}</span>
-      <span>{selectedClient?.id === client.id ? 'Selected' : 'Click to select'}</span>
     </div>
   ))}
 </div>
