@@ -69,6 +69,10 @@ public class InvoiceReminderService {
         }
     }
 
+    public List<InvoiceReminder> getAllReminders() {
+    return reminderRepository.findAll();
+    }
+
     public List<InvoiceReminder> dueReminders() {
         return reminderRepository.findByStatusAndRemindAtLessThanEqual("SCHEDULED", LocalDate.now());
     }

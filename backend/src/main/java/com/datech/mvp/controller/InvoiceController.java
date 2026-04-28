@@ -25,7 +25,7 @@ public class InvoiceController {
     private final InvoicePdfService invoicePdfService;
     private final InvoiceReminderService reminderService;
 
-    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService) {
+    public InvoiceController(InvoiceRepository repository, CrudService crudService, ProjectAnalyticsService analyticsService, InvoicePdfService invoicePdfService, InvoiceReminderService reminderService) {
         this.repository = repository;
         this.crudService = crudService;
         this.analyticsService = analyticsService;

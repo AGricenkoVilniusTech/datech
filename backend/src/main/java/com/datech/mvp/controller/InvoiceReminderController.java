@@ -23,4 +23,9 @@ public class InvoiceReminderController {
         }
         return reminderService.dueReminders();
     }
+
+    @GetMapping("/all")
+    public List<InvoiceReminder> allReminders() {
+    return reminderService.getAllReminders();
+}
 }
