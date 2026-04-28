@@ -228,6 +228,8 @@ export default function App() {
 
   async function addInvoice(e) {
 
+    e.preventDefault();
+
     const today = new Date().toISOString().split('T')[0];
 
     const anyReminderSelected =
@@ -306,6 +308,78 @@ export default function App() {
 
   const taxAmount = (subtotal * (taxRate / 100)).toFixed(2);
   const total = (subtotal + Number(taxAmount)).toFixed(2);
+
+  function getInvoiceRisk() {
+    const amount = Number(invoiceForm.amount || 0);
+    const vat = Number(invoiceForm.taxRate || 0);
+    const messages = [];
+  
+    let level = 'SAFE';
+  
+    if (!invoiceForm.amount || Number.isNaN(amount)) {
+      return {
+        level: 'INFO',
+        title: 'Invoice check waiting for amount',
+        messages: ['Enter invoice amount to calculate risk.']
+      };
+    }
+  
+    if (vat < 0 || vat > 100) {
+      return {
+        level: 'HIGH',
+        title: 'High risk invoice',
+        messages: ['VAT rate must be between 0 and 100.']
+      };
+    }
+  
+    if (vat > 50) {
+      level = 'HIGH';
+      messages.push('VAT rate is unusually high.');
+    } else if (vat > 30) {
+      if (level !== 'HIGH') level = 'WARNING';
+      messages.push('VAT rate is higher than usual.');
+    }
+  
+    if (amount < 50) {
+      if (level !== 'HIGH') level = 'WARNING';
+      messages.push('Invoice amount is very low.');
+    }
+  
+    if (vat === 0) {
+      messages.push('No VAT is applied to this invoice.');
+    }
+  
+    if (invoiceForm.dueDate) {
+      const today = new Date();
+      const dueDate = new Date(invoiceForm.dueDate);
+      const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
+  
+      if (diffDays < 0) {
+        level = 'HIGH';
+        messages.push('Due date is already in the past.');
+      } else if (diffDays <= 2) {
+        if (level !== 'HIGH') level = 'WARNING';
+        messages.push('Due date is very close.');
+      }
+    }
+  
+    if (messages.length === 0) {
+      messages.push('Invoice values look normal.');
+    }
+  
+    return {
+      level,
+      title:
+        level === 'HIGH'
+          ? 'High risk invoice'
+          : level === 'WARNING'
+            ? 'Warning'
+            : 'Safe invoice',
+      messages
+    };
+  }
+  
+  const invoiceRisk = getInvoiceRisk();
 
   const latestClients = [...clients].slice(-5).reverse();
 
@@ -795,9 +869,29 @@ export default function App() {
           <button type="submit">Save</button>
         </form>
         <div className="result">
-          <p>Subtotal: {subtotal.toFixed(2)}</p>
-          <p>Tax: {taxAmount}</p>
-          <p>Total: {total}</p>
+        <p>Subtotal: {subtotal.toFixed(2)}</p>
+        <p>Tax: {taxAmount}</p>
+        <p>Total: {total}</p>
+
+
+          <div className={`risk-box ${invoiceRisk.level.toLowerCase()}`}>
+            <strong>
+              {invoiceRisk.level === 'HIGH'
+                ? '🔴 '
+                : invoiceRisk.level === 'WARNING'
+                  ? '🟡 '
+                  : invoiceRisk.level === 'SAFE'
+                    ? '🟢 '
+                  : 'ℹ️ '}
+              {invoiceRisk.title}
+            </strong>
+
+            <ul>
+              {invoiceRisk.messages.map((message, index) => (
+                <li key={index}>{message}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       </Panel>
 

@@ -275,3 +275,40 @@ mark {
   padding: 2px 4px;
   border-radius: 4px;
 }
+
+
+.risk-box {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+}
+
+.risk-box ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.risk-box.safe {
+  background: #e8f5e9;
+  color: #2e7d32;
+  border-color: #a5d6a7;
+}
+
+.risk-box.warning {
+  background: #fff8e1;
+  color: #8a6d00;
+  border-color: #ffe082;
+}
+
+.risk-box.high {
+  background: #ffebee;
+  color: #c62828;
+  border-color: #ef9a9a;
+}
+
+.risk-box.info {
+  background: #e3f2fd;
+  color: #1565c0;
+  border-color: #90caf9;
+}
