@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import SharedInvoiceView from './SharedInvoiceView';
 import { api } from './api';
 import CategoryForm from './components/CategoryForm';
 import CategoryList from './components/CategoryList';
@@ -14,6 +15,12 @@ function Panel({ title, children }) {
 }
 
 export default function App() {
+  const token = window.location.pathname.startsWith('/shared/')
+    ? window.location.pathname.replace('/shared/', '')
+    : null;
+
+  if (token) return <SharedInvoiceView token={token} />;
+
   const [clients, setClients] = useState([]);
   const [projects, setProjects] = useState([]);
   const [projectErrors, setProjectErrors] = useState({});
@@ -551,6 +558,10 @@ export default function App() {
         )}
       </Panel>
 
+      <Panel title="Client Portal — Share Invoice">
+        <ShareInvoicePanel invoices={invoices} />
+      </Panel>
+
       <Panel title="Latest Invoices">
         <ul>
           {invoices.slice(0, 10).map((inv) => (
@@ -585,5 +596,98 @@ export default function App() {
         )}
       </Panel>
     </main>
+  );
+}
+function ShareInvoicePanel({ invoices }) {
+  const [invoiceId, setInvoiceId] = useState('');
+  const [expiry, setExpiry] = useState('7');
+  const [shareData, setShareData] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function generate() {
+    if (!invoiceId) return;
+    setLoading(true);
+    setErr('');
+    setShareData(null);
+    try {
+      const expiryDays = expiry === 'never' ? 0 : Number(expiry);
+      const result = await api.shareInvoice(invoiceId, expiryDays);
+      const fullUrl = `${window.location.origin}/shared/${result.token}`;
+      setShareData({ url: fullUrl, expires: result.expiresAt, token: result.token });
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function revoke() {
+    try {
+      await api.revokeSharedInvoice(shareData.token);
+      setShareData(null);
+      setErr('');
+    } catch (e) {
+      setErr(e.message);
+    }
+  }
+
+  function copy() {
+    navigator.clipboard.writeText(shareData.url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div>
+      <div className="form-inline" style={{ marginBottom: '12px' }}>
+        <select value={invoiceId} onChange={(e) => setInvoiceId(e.target.value)}>
+          <option value="">Select invoice</option>
+          {invoices.map((inv) => (
+            <option key={inv.id} value={inv.id}>
+              #{inv.id} — {inv.amount} ({inv.status})
+            </option>
+          ))}
+        </select>
+        <select value={expiry} onChange={(e) => setExpiry(e.target.value)}>
+          <option value="7">7 days</option>
+          <option value="30">30 days</option>
+          <option value="never">Never</option>
+        </select>
+        <button type="button" onClick={generate} disabled={!invoiceId || loading}>
+          {loading ? 'Generating...' : 'Generate Share Link'}
+        </button>
+      </div>
+      {err && <p style={{ color: 'red' }}>{err}</p>}
+      {shareData && (
+        <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', background: '#f8fafc', marginTop: '12px' }}>
+          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '6px' }}>
+            Share URL (read-only) · Expires: {shareData.expires === 'never' ? 'Never' : shareData.expires.slice(0, 10)}
+          </p>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <input
+              readOnly
+              value={shareData.url}
+              style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', background: '#fff' }}
+            />
+            <button
+              type="button"
+              onClick={copy}
+              style={{ padding: '8px 16px', borderRadius: '6px', background: copied ? '#22c55e' : '#3b82f6', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '13px' }}
+            >
+              {copied ? '✓ Copied!' : 'Copy'}
+            </button>
+            <button
+              type="button"
+              onClick={revoke}
+              style={{ padding: '8px 16px', borderRadius: '6px', background: '#ef4444', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '13px' }}
+            >
+              Revoke
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
